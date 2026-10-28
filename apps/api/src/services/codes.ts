@@ -1,5 +1,6 @@
 import { formatCode } from '@pd/shared';
-import type { Tx } from '../db';
+import { Prisma, type Tx } from '../db';
+import { env } from '../env';
 
 /** Atomically takes the next number for `prefix` (single upsert statement, safe under concurrency). */
 export async function nextCode(tx: Tx, prefix: string): Promise<string> {
@@ -14,8 +15,12 @@ export async function nextCode(tx: Tx, prefix: string): Promise<string> {
 export async function reserveCode(tx: Tx, prefix: string, code: string): Promise<void> {
   const m = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d{6,})$`).exec(code);
   if (!m) return;
-  const after = Number(m[1]) + 1;
-  await tx.$executeRaw`
-    INSERT INTO "DocumentSequence" ("prefix", "next") VALUES (${prefix}, ${after})
-    ON CONFLICT ("prefix") DO UPDATE SET "next" = MAX("DocumentSequence"."next", ${after})`;
+  await tx.$executeRaw(reserveSql(env.dialect, prefix, Number(m[1]) + 1));
+}
+
+/** Upsert keeping the larger `next`: scalar MAX(a, b) on SQLite, GREATEST(a, b) on Postgres. */
+export function reserveSql(dialect: 'sqlite' | 'postgres', prefix: string, after: number) {
+  return dialect === 'postgres'
+    ? Prisma.sql`INSERT INTO "DocumentSequence" ("prefix", "next") VALUES (${prefix}, ${after}) ON CONFLICT ("prefix") DO UPDATE SET "next" = GREATEST("DocumentSequence"."next", ${after})`
+    : Prisma.sql`INSERT INTO "DocumentSequence" ("prefix", "next") VALUES (${prefix}, ${after}) ON CONFLICT ("prefix") DO UPDATE SET "next" = MAX("DocumentSequence"."next", ${after})`;
 }

@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: pd
+      POSTGRES_PASSWORD: pd
+      POSTGRES_DB: phuongdong
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pd -d phuongdong"]
+      interval: 3s
+      retries: 20
+  app:
+    build: .
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgresql://pd:pd@db:5432/phuongdong
+    ports: ["3000:3000"]
+    volumes: [uploads:/app/data/uploads]
+volumes:
+  pgdata:
+  uploads:

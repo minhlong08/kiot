@@ -8,3 +8,4 @@ test-results
 .superpowers
 *.tsbuildinfo
 apps/api/src/generated
+apps/api/prisma/pg

@@ -3,7 +3,10 @@ import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import { ZodError } from 'zod';
 import type { PrismaClient } from './generated/prisma/client';
+import fs from 'node:fs';
+import fastifyStatic from '@fastify/static';
 import { getPrisma } from './db';
+import { env } from './env';
 import { AppError } from './lib/errors';
 import { registerAuth } from './plugins/auth';
 import './services/customerOrders';
@@ -14,7 +17,7 @@ declare module 'fastify' {
   }
 }
 
-export type BuildOptions = { logger?: boolean; prisma?: PrismaClient };
+export type BuildOptions = { logger?: boolean; prisma?: PrismaClient; /** Built SPAs to serve; defaults to the admin and POS dist folders when present. */ web?: { admin?: string; pos?: string } };
 export type RoutePlugin = (app: FastifyInstance) => Promise<void> | void;
 
 export async function buildApp(opts: BuildOptions = {}): Promise<FastifyInstance> {
@@ -49,5 +52,21 @@ export async function buildApp(opts: BuildOptions = {}): Promise<FastifyInstance
 
   const { routes } = await import('./routes/index');
   for (const mod of routes) await app.register(async scoped => mod(scoped));
+  await serveWeb(app, opts.web ?? env.web);
   return app;
+}
+
+/** Production: admin at /, POS at /sale/, each with an index.html fallback for client-side routes (incl. /shop). */
+async function serveWeb(app: FastifyInstance, web: { admin?: string; pos?: string }) {
+  const admin = web.admin && fs.existsSync(`${web.admin}/index.html`) ? web.admin : null;
+  const pos = web.pos && fs.existsSync(`${web.pos}/index.html`) ? web.pos : null;
+  if (pos) await app.register(fastifyStatic, { root: pos, prefix: '/sale/', decorateReply: false, wildcard: false, index: false });
+  if (admin) await app.register(fastifyStatic, { root: admin, prefix: '/', wildcard: false, index: false });
+  app.setNotFoundHandler((req, reply) => {
+    const url = req.url.split('?')[0];
+    const html = req.method === 'GET' && !url.startsWith('/api/') && !url.startsWith('/files/');
+    if (html && pos && (url === '/sale' || url.startsWith('/sale/'))) return reply.type('text/html').send(fs.createReadStream(`${pos}/index.html`));
+    if (html && admin && !/\.[a-z0-9]+$/i.test(url)) return reply.type('text/html').send(fs.createReadStream(`${admin}/index.html`));
+    return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Không tìm thấy' } });
+  });
 }
