@@ -57,6 +57,13 @@ export const settingsSchema = z.object({
     hotline: z.string().max(30).default(''),
     intro: z.string().max(1000).default(''),
   }).prefault({}),
+  staff: z.object({
+    lateGraceMinutes: z.number().int().min(0).max(120).default(5),
+    earlyGraceMinutes: z.number().int().min(0).max(120).default(5),
+    overtimeAfterMinutes: z.number().int().min(0).max(240).default(30),
+    /** Paid days in a month for monthly salaries. */
+    standardDays: z.number().int().min(1).max(31).default(26),
+  }).prefault({}),
   tax: z.object({
     mode: z.enum(['household', 'company']).default('household'),
     defaultVatRate: z.number().min(0).max(100).default(8),
