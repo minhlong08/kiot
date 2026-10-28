@@ -9,6 +9,7 @@ import { BarChart, HBarChart, LineChart } from '../../components/charts';
 
 type Kpi = { key: string; label: string; value: number; previous: number; change: number | null; money: boolean };
 type Ranked = { name: string; value: number };
+const bars = (xs: unknown) => (xs as Ranked[]).map(x => ({ label: x.name, value: x.value }));
 type ChartData = { labels: string[]; series: { name: string; values: number[] }[] };
 const TITLES = { business: 'Phân tích kinh doanh', products: 'Phân tích hàng hóa', customers: 'Phân tích khách hàng', efficiency: 'Phân tích hiệu quả' } as const;
 type Name = keyof typeof TITLES;
@@ -44,8 +45,8 @@ export function AnalyticsPage({ name }: { name: Name }) {
         <Card title="Doanh thu thuần theo ngày — kỳ này và kỳ trước"><LineChart {...(d.trend as ChartData)} /></Card>
       </>}
       {d && name === 'products' && <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Bán chạy nhất"><HBarChart rows={d.top as Ranked[]} /></Card>
-        <Card title="Bán chậm nhất (có phát sinh)"><HBarChart rows={d.bottom as Ranked[]} /></Card>
+        <Card title="Bán chạy nhất"><HBarChart rows={bars(d.top)} /></Card>
+        <Card title="Bán chậm nhất (có phát sinh)"><HBarChart rows={bars(d.bottom)} /></Card>
         <Card title="Hàng tồn không bán trong 30 ngày" className="lg:col-span-2">
           <table className="w-full text-sm"><thead className="text-left text-slate-500"><tr><th className="p-2">Mã</th><th className="p-2">Tên hàng</th><th className="p-2 text-right">Tồn</th><th className="p-2 text-right">Giá trị (giá bán)</th></tr></thead>
             <tbody>{(d.slowMovers as { code: string; name: string; onHand: number; value: number }[]).map(s => <tr key={s.code} className="border-t border-slate-100"><td className="p-2">{s.code}</td><td className="p-2">{s.name}</td><td className="p-2 text-right">{s.onHand}</td><td className="p-2 text-right tabular-nums">{formatVnd(s.value)}</td></tr>)}</tbody></table>
@@ -56,10 +57,10 @@ export function AnalyticsPage({ name }: { name: Name }) {
       </div>}
       {d && name === 'customers' && <>
         <Kpis items={d.kpis as Kpi[]} compare={false} />
-        <div className="grid gap-4 lg:grid-cols-2"><Card title="Khách mua nhiều nhất"><HBarChart rows={d.top as Ranked[]} /></Card><Card title="Doanh thu theo nhóm khách"><HBarChart rows={d.groups as Ranked[]} /></Card></div>
+        <div className="grid gap-4 lg:grid-cols-2"><Card title="Khách mua nhiều nhất"><HBarChart rows={bars(d.top)} /></Card><Card title="Doanh thu theo nhóm khách"><HBarChart rows={bars(d.groups)} /></Card></div>
       </>}
       {d && name === 'efficiency' && <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Doanh thu theo nhân viên bán"><HBarChart rows={d.staff as Ranked[]} /></Card>
+        <Card title="Doanh thu theo nhân viên bán"><HBarChart rows={bars(d.staff)} /></Card>
         <Card title="Đơn đặt hàng"><div className="grid grid-cols-2 gap-3 text-sm">{([['Đơn đặt', 'placed'], ['Hoàn thành', 'completed'], ['Đã hủy', 'cancelled'], ['Tỷ lệ chuyển thành hóa đơn', 'conversion']] as const).map(([l, k]) => <div key={k} className="rounded-lg bg-slate-50 p-3"><div className="text-slate-500">{l}</div><div className="text-lg font-semibold">{(d.orders as Record<string, number>)[k]}{k === 'conversion' ? '%' : ''}</div></div>)}</div></Card>
         <Card title="Doanh thu theo giờ trong ngày" className="lg:col-span-2"><BarChart {...(d.hours as ChartData)} /></Card>
       </div>}
