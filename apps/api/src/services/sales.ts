@@ -206,16 +206,22 @@ export function setOrderHook(fn: typeof applyInvoiceToOrder) { applyInvoiceToOrd
 export let rollbackInvoiceFromOrder: (tx: Tx, ctx: DocCtx, invoiceId: number) => Promise<void> = async () => undefined;
 export function setOrderRollbackHook(fn: typeof rollbackInvoiceFromOrder) { rollbackInvoiceFromOrder = fn; }
 
-export async function cancelInvoice(tx: Tx, ctx: DocCtx, id: number, opts: { fromReturn?: boolean } = {}) {
+export async function cancelInvoice(tx: Tx, ctx: DocCtx, id: number, opts: { fromReturn?: boolean; fromDelivery?: boolean } = {}) {
   const inv = await tx.invoice.findUnique({ where: { id } });
   if (!inv || inv.branchId !== ctx.branchId) throw notFound('Hóa đơn');
+  const delivery = inv.isDelivery ? await tx.invoiceDelivery.findUnique({ where: { invoiceId: id } }) : null;
+  if (delivery && !opts.fromDelivery) {
+    if (['delivering', 'failed', 'returning'].includes(delivery.status)) throw conflict('DELIVERY_IN_PROGRESS', 'Hàng đang được giao: hãy cập nhật vận đơn sang chuyển hoàn');
+    if (delivery.reconciledAt) throw conflict('DELIVERY_RECONCILED', 'Vận đơn đã đối soát COD: hãy hủy phiếu đối soát trước');
+  }
   if (!opts.fromReturn && await tx.saleReturn.count({ where: { exchangeInvoiceId: id, status: 'completed' } })) {
     throw conflict('IS_EXCHANGE', 'Đây là hóa đơn đổi hàng, hãy hủy phiếu trả hàng tương ứng');
   }
   if (await tx.saleReturn.count({ where: { invoiceId: id, status: 'completed' } })) throw conflict('HAS_RETURNS', 'Hóa đơn đã có phiếu trả hàng, hãy hủy phiếu trả trước');
   await transition(tx, 'invoice', id, ['completed', 'processing', 'undeliverable'], 'cancelled', { cancelledAt: new Date() });
   await reverseDocument(tx, 'invoice', id, 'invoice_cancel');
-  for (const t of ['invoice', 'invoicePayment']) await reversePartnerDocument(tx, t, id, `${t}_cancel`);
+  for (const t of ['invoice', 'invoicePayment', 'deliveryCod', 'deliveryFee']) await reversePartnerDocument(tx, t, id, `${t}_cancel`);
+  if (delivery && !opts.fromDelivery) await tx.invoiceDelivery.update({ where: { invoiceId: id }, data: { status: 'cancelled', updatedAt: new Date() } });
   for (const t of ['invoice', 'invoiceRedeem']) await reverseLoyaltyDocument(tx, t, id, `${t}_cancel`);
   await cancelCashBySource(tx, ctx, 'invoice', id);
   if (inv.voucherCode) await releaseVoucher(tx, inv.voucherCode, id);
