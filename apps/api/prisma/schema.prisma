@@ -348,3 +348,239 @@ model TransferLine {
 
   @@index([transferId])
 }
+
+// ───────────── Suppliers, purchasing, cash core (M3) ─────────────
+
+model SupplierGroup {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+  note String @default("")
+}
+
+model Supplier {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique
+  name       String
+  searchText String   @default("")
+  phone      String   @default("")
+  email      String   @default("")
+  taxCode    String   @default("")
+  address    String   @default("")
+  company    String   @default("")
+  groupId    Int?
+  note       String   @default("")
+  isActive   Boolean  @default(true)
+  debt       Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([searchText])
+}
+
+model PartnerLedger {
+  id           Int      @id @default(autoincrement())
+  partnerType  String
+  partnerId    Int
+  docType      String
+  docId        Int
+  docCode      String
+  amount       Int
+  balanceAfter Int
+  note         String   @default("")
+  createdAt    DateTime @default(now())
+
+  @@index([partnerType, partnerId, id])
+  @@index([docType, docId])
+}
+
+model CashFund {
+  id             Int      @id @default(autoincrement())
+  type           String
+  name           String
+  bankName       String   @default("")
+  accountNumber  String   @default("")
+  accountName    String   @default("")
+  branchId       Int?
+  isActive       Boolean  @default(true)
+  openingBalance Int      @default(0)
+  createdAt      DateTime @default(now())
+}
+
+model CashCategory {
+  id         Int     @id @default(autoincrement())
+  kind       String
+  name       String
+  isSystem   Boolean @default(false)
+  affectsPnl Boolean @default(true)
+
+  @@unique([kind, name])
+}
+
+model CashVoucher {
+  id               Int      @id @default(autoincrement())
+  code             String   @unique
+  kind             String
+  fundId           Int
+  branchId         Int
+  amount           Int
+  categoryId       Int
+  counterpartyType String
+  counterpartyId   Int?
+  counterpartyName String   @default("")
+  sourceType       String?
+  sourceId         Int?
+  sourceCode       String?
+  note             String   @default("")
+  status           String   @default("completed")
+  affectsPnl       Boolean  @default(true)
+  createdById      Int
+  createdAt        DateTime @default(now())
+
+  @@index([fundId, createdAt])
+  @@index([sourceType, sourceId])
+  @@index([branchId, createdAt])
+}
+
+model PurchaseOrder {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  supplierId  Int
+  branchId    Int
+  status      String    @default("draft")
+  expectedAt  DateTime?
+  note        String    @default("")
+  subtotal    Int       @default(0)
+  discount    Int       @default(0)
+  total       Int       @default(0)
+  createdById Int
+  createdAt   DateTime  @default(now())
+  confirmedAt DateTime?
+  lines       PurchaseOrderLine[]
+}
+
+model PurchaseOrderLine {
+  id          Int           @id @default(autoincrement())
+  orderId     Int
+  order       PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   Int
+  unitId      Int?
+  conversion  Int           @default(1)
+  qty         Int
+  unitCost    Int
+  discount    Int           @default(0)
+  receivedQty Int           @default(0)
+
+  @@index([orderId])
+}
+
+model PurchaseReceipt {
+  id              Int       @id @default(autoincrement())
+  code            String    @unique
+  supplierId      Int
+  branchId        Int
+  purchaseOrderId Int?
+  invoiceNo       String    @default("")
+  status          String    @default("draft")
+  subtotal        Int       @default(0)
+  discount        Int       @default(0)
+  otherCosts      Int       @default(0)
+  total           Int       @default(0)
+  paid            Int       @default(0)
+  fundId          Int?
+  note            String    @default("")
+  createdById     Int
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  lines           PurchaseReceiptLine[]
+
+  @@index([supplierId])
+  @@index([branchId, createdAt])
+}
+
+model PurchaseReceiptLine {
+  id          Int             @id @default(autoincrement())
+  receiptId   Int
+  receipt     PurchaseReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  productId   Int
+  unitId      Int?
+  conversion  Int             @default(1)
+  qty         Int
+  unitCost    Int
+  discount    Int             @default(0)
+  amount      Int             @default(0)
+  baseCost    Int             @default(0)
+  returnedQty Int             @default(0)
+
+  @@index([receiptId])
+}
+
+model PurchaseReturn {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  supplierId  Int
+  branchId    Int
+  receiptId   Int?
+  status      String    @default("draft")
+  subtotal    Int       @default(0)
+  discount    Int       @default(0)
+  total       Int       @default(0)
+  refund      Int       @default(0)
+  fundId      Int?
+  note        String    @default("")
+  createdById Int
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+  lines       PurchaseReturnLine[]
+
+  @@index([supplierId])
+}
+
+model PurchaseReturnLine {
+  id         Int            @id @default(autoincrement())
+  returnId   Int
+  ret        PurchaseReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  productId  Int
+  unitId     Int?
+  conversion Int            @default(1)
+  qty        Int
+  price      Int
+  amount     Int            @default(0)
+  cost       Int            @default(0)
+
+  @@index([returnId])
+}
+
+model IncomingInvoice {
+  id              Int      @id @default(autoincrement())
+  invoiceNo       String
+  series          String   @default("")
+  issuedAt        DateTime
+  supplierId      Int?
+  supplierName    String   @default("")
+  supplierTaxCode String   @default("")
+  receiptId       Int?
+  purchaseOrderId Int?
+  subtotal        Int      @default(0)
+  vatAmount       Int      @default(0)
+  total           Int      @default(0)
+  note            String   @default("")
+  createdAt       DateTime @default(now())
+
+  @@unique([series, invoiceNo, supplierTaxCode])
+}
+
+model ServicePurchase {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  supplierId  Int?
+  branchId    Int
+  serviceName String
+  categoryId  Int
+  amount      Int
+  paid        Int      @default(0)
+  fundId      Int?
+  status      String   @default("completed")
+  note        String   @default("")
+  createdById Int
+  createdAt   DateTime @default(now())
+}
