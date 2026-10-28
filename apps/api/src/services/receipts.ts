@@ -8,7 +8,7 @@ import { moveStock, reverseDocument } from './stock';
 import { postPartnerLedger, reversePartnerDocument } from './partnerLedger';
 import { cancelCashBySource, recordCash } from './cash';
 import { resolveUnits } from './purchaseLines';
-import { applyReceiptToOrder } from './purchaseOrders';
+import { applyReceiptToOrder, assertOrderOpen } from './purchaseOrders';
 import type { DocCtx } from './stockDocs';
 
 export async function saveReceipt(tx: Tx, ctx: DocCtx, input: ReceiptInput, id?: number) {
@@ -17,7 +17,7 @@ export async function saveReceipt(tx: Tx, ctx: DocCtx, input: ReceiptInput, id?:
   if (input.purchaseOrderId) {
     const o = await tx.purchaseOrder.findUnique({ where: { id: input.purchaseOrderId } });
     if (!o || o.branchId !== ctx.branchId) throw notFound('Phiếu đặt hàng nhập');
-    if (['draft', 'cancelled', 'completed'].includes(o.status)) throw conflict('ORDER_NOT_OPEN', 'Phiếu đặt hàng nhập chưa xác nhận hoặc đã kết thúc');
+    await assertOrderOpen(tx, o.id);
   }
   const lines = await resolveUnits(tx, input.lines);
   const alloc = allocateReceiptCosts(lines, input.discount, input.otherCosts);
@@ -27,7 +27,8 @@ export async function saveReceipt(tx: Tx, ctx: DocCtx, input: ReceiptInput, id?:
   const data = {
     supplierId: input.supplierId, purchaseOrderId: input.purchaseOrderId ?? null, invoiceNo: input.invoiceNo, note: input.note,
     subtotal, discount: input.discount, otherCosts: input.otherCosts, total, paid: input.paid, fundId: input.fundId ?? null,
-    ...(input.at ? { createdAt: new Date(input.at) } : {}),
+    // Backdating only when explicitly asked (paperwork entered late); otherwise documents are dated when completed.
+    ...(input.at ? { createdAt: new Date(input.at), effectiveAt: new Date(input.at) } : {}),
   };
   let r;
   if (id) {
@@ -52,7 +53,8 @@ export async function completeReceipt(tx: Tx, ctx: DocCtx, id: number, at?: Date
   const r = await tx.purchaseReceipt.findUnique({ where: { id }, include: { lines: true } });
   if (!r || r.branchId !== ctx.branchId) throw notFound('Phiếu nhập hàng');
   if (r.status !== 'draft') throw conflict('NOT_DRAFT', 'Phiếu đã hoàn thành hoặc đã hủy');
-  const when = at ?? (r.createdAt.getTime() < Date.now() - 60_000 ? r.createdAt : undefined);
+  const when = at ?? r.effectiveAt ?? undefined;
+  if (r.purchaseOrderId) await assertOrderOpen(tx, r.purchaseOrderId);
   const supplier = await tx.supplier.findUniqueOrThrow({ where: { id: r.supplierId } });
   for (const l of r.lines) {
     await moveStock(tx, { productId: l.productId, branchId: r.branchId, qty: l.qty * l.conversion, unitCost: l.baseCost, docType: 'receipt', docId: r.id, docCode: r.code, at: when });

@@ -455,6 +455,7 @@ model PurchaseOrder {
   createdById Int
   createdAt   DateTime  @default(now())
   confirmedAt DateTime?
+  closedManually Boolean @default(false)
   lines       PurchaseOrderLine[]
 }
 
@@ -490,6 +491,7 @@ model PurchaseReceipt {
   note            String    @default("")
   createdById     Int
   createdAt       DateTime  @default(now())
+  effectiveAt     DateTime?
   completedAt     DateTime?
   lines           PurchaseReceiptLine[]
 

@@ -93,7 +93,7 @@ export function PurchaseReturnEditor() {
         <div className="flex items-center justify-between text-sm"><span>Giảm giá</span><MoneyInput className="w-36" value={f.discount} disabled={!editable} onChange={discount => setF({ ...f, discount })} aria-label="Giảm giá phiếu" /></div>
         <div className="flex justify-between text-sm font-semibold"><span>NCC cần trả</span><span data-testid="total-due" className="text-brand-700">{formatVnd(total)}</span></div>
         <div className="flex items-center justify-between text-sm"><span>Tiền NCC trả</span><MoneyInput className="w-36" value={f.refund} disabled={!editable} onChange={refund => setF({ ...f, refund: Math.min(refund, total) })} aria-label="Tiền NCC trả" /></div>
-        <Field label="Nhận vào quỹ"><FundSelect value={f.fundId} onChange={fundId => setF({ ...f, fundId })} /></Field>
+        <Field label="Nhận vào quỹ"><FundSelect value={f.fundId} disabled={!editable} onChange={fundId => setF({ ...f, fundId })} /></Field>
         <div className="flex justify-between text-sm"><span>Tính vào công nợ</span><span>{formatVnd(total - f.refund)}</span></div>
         <Field label="Ghi chú"><textarea className="input" rows={2} disabled={!editable} value={f.note} onChange={e => setF({ ...f, note: e.target.value })} /></Field>
         {editable && (

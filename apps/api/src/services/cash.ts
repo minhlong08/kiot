@@ -39,7 +39,8 @@ async function defaultFund(tx: Tx, branchId: number | null) {
 export async function recordCash(tx: Tx, ctx: CashCtx, v: CashInput) {
   if (!v.amount) return null;
   const fund = v.fundId ? await tx.cashFund.findUnique({ where: { id: v.fundId } }) : await defaultFund(tx, ctx.branchId);
-  if (!fund) throw notFound('Quỹ tiền');
+  // Money only moves through active funds of this branch (or company-wide funds).
+  if (!fund || !fund.isActive || (fund.branchId !== null && fund.branchId !== ctx.branchId)) throw notFound('Quỹ tiền');
   const category = v.categoryId
     ? await tx.cashCategory.findUnique({ where: { id: v.categoryId } })
     : (await tx.cashCategory.findUnique({ where: { kind_name: { kind: v.kind, name: v.categoryName ?? (v.kind === 'in' ? 'Thu khác' : 'Chi khác') } } }))

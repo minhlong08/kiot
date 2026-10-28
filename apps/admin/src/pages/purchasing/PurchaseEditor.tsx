@@ -19,7 +19,7 @@ const CFG = {
   order: { title: 'Đặt hàng nhập', api: '/purchase-orders', route: '/purchase-orders', complete: 'Đặt hàng', flag: 'confirm' },
 } as const;
 
-type Loaded = { id: number; code: string; status: string; supplierId: number; supplierCode: string; supplierName: string; createdAt: string; note: string; discount: number; otherCosts?: number; paid?: number; invoiceNo?: string; purchaseOrderId?: number | null; purchaseOrderCode?: string | null; fundId?: number | null; lines: Record<string, unknown>[] };
+type Loaded = { id: number; code: string; status: string; total?: number; supplierId: number; supplierCode: string; supplierName: string; createdAt: string; note: string; discount: number; otherCosts?: number; paid?: number; invoiceNo?: string; purchaseOrderId?: number | null; purchaseOrderCode?: string | null; fundId?: number | null; lines: Record<string, unknown>[] };
 
 const toLine = (l: Record<string, unknown>): DocLine => ({ ...l, productId: Number(l.productId), unitId: (l.unitId as number | null) ?? null, code: String(l.productCode), name: String(l.productName), unit: String(l.unit ?? ''), qty: Number(l.qty), unitCost: Number(l.unitCost), discount: Number(l.discount ?? 0) });
 
@@ -47,7 +47,7 @@ export function makePurchaseEditor(kind: Kind) {
           setDoc(d);
           setSupplier({ id: d.supplierId, code: d.supplierCode, name: d.supplierName });
           setLines(d.lines.map(toLine));
-          setF(x => ({ ...x, code: d.code, invoiceNo: d.invoiceNo ?? '', discount: d.discount, otherCosts: d.otherCosts ?? 0, paid: d.paid ?? 0, paidTouched: true, fundId: d.fundId ?? null, note: d.note, purchaseOrderId: d.purchaseOrderId ?? null, purchaseOrderCode: d.purchaseOrderCode ?? '' }));
+          setF(x => ({ ...x, code: d.code, invoiceNo: d.invoiceNo ?? '', discount: d.discount, otherCosts: d.otherCosts ?? 0, paid: d.paid ?? 0, paidTouched: (d.paid ?? 0) !== (d.total ?? 0), fundId: d.fundId ?? null, note: d.note, purchaseOrderId: d.purchaseOrderId ?? null, purchaseOrderCode: d.purchaseOrderCode ?? '' }));
         }, toastError);
         return;
       }
@@ -118,7 +118,7 @@ export function makePurchaseEditor(kind: Kind) {
           {kind === 'receipt' && (
             <>
               <Row label="Tiền trả nhà cung cấp"><MoneyInput className="w-36" value={paid} disabled={!editable} onChange={v => setF({ ...f, paid: v, paidTouched: true })} aria-label="Tiền trả nhà cung cấp" /></Row>
-              <Field label="Trả từ quỹ"><FundSelect value={f.fundId} onChange={fundId => setF({ ...f, fundId })} /></Field>
+              <Field label="Trả từ quỹ"><FundSelect value={f.fundId} disabled={!editable} onChange={fundId => setF({ ...f, fundId })} /></Field>
               <Row label="Tính vào công nợ"><span className={totals.total - paid > 0 ? 'text-rose-700' : ''}>{formatVnd(totals.total - paid)}</span></Row>
             </>
           )}

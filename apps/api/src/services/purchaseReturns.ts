@@ -64,7 +64,11 @@ export async function completePurchaseReturn(tx: Tx, ctx: DocCtx, id: number) {
   if (!ret || ret.branchId !== ctx.branchId) throw notFound('Phiếu trả hàng nhập');
   if (ret.status !== 'draft') throw conflict('NOT_DRAFT', 'Phiếu đã hoàn thành hoặc đã hủy');
   const supplier = await tx.supplier.findUniqueOrThrow({ where: { id: ret.supplierId } });
-  if (ret.receiptId) await applyToReceipt(tx, ret.receiptId, ret.lines, 1);
+  if (ret.receiptId) {
+    const receipt = await tx.purchaseReceipt.findUnique({ where: { id: ret.receiptId } });
+    if (receipt?.status !== 'completed') throw conflict('RECEIPT_NOT_COMPLETED', 'Phiếu nhập hàng gốc đã bị hủy');
+    await applyToReceipt(tx, ret.receiptId, ret.lines, 1);
+  }
   for (const l of ret.lines) {
     const r = await moveStock(tx, { productId: l.productId, branchId: ret.branchId, qty: -l.qty * l.conversion, docType: 'purchaseReturn', docId: ret.id, docCode: ret.code });
     await tx.purchaseReturnLine.update({ where: { id: l.id }, data: { cost: r.unitCost } });

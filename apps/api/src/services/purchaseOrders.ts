@@ -43,6 +43,11 @@ export async function confirmPurchaseOrder(tx: Tx, ctx: DocCtx, id: number) {
   await audit(tx, ctx, { action: 'complete', entity: 'PurchaseOrder', entityId: id, entityCode: o.code, summary: `Đặt hàng nhập ${o.code}` });
 }
 
+export async function assertOrderOpen(tx: Tx, orderId: number) {
+  const o = await tx.purchaseOrder.findUnique({ where: { id: orderId } });
+  if (!o || ['draft', 'cancelled'].includes(o.status) || o.closedManually) throw conflict('ORDER_NOT_OPEN', 'Phiếu đặt hàng nhập chưa xác nhận hoặc đã kết thúc');
+}
+
 /** Releases what is still expected and closes (completed) or cancels the order. */
 export async function finishPurchaseOrder(tx: Tx, ctx: DocCtx, id: number, how: 'close' | 'cancel') {
   const o = await tx.purchaseOrder.findUnique({ where: { id }, include: { lines: true } });
@@ -52,7 +57,7 @@ export async function finishPurchaseOrder(tx: Tx, ctx: DocCtx, id: number, how: 
   if (o.status !== 'draft') {
     for (const l of o.lines) await adjustCounter(tx, l.productId, o.branchId, 'incoming', -Math.max(0, l.qty - l.receivedQty) * l.conversion);
   }
-  await tx.purchaseOrder.update({ where: { id }, data: { status: how === 'close' ? 'completed' : 'cancelled' } });
+  await tx.purchaseOrder.update({ where: { id }, data: { status: how === 'close' ? 'completed' : 'cancelled', closedManually: how === 'close' } });
   await audit(tx, ctx, { action: how === 'close' ? 'complete' : 'cancel', entity: 'PurchaseOrder', entityId: id, entityCode: o.code, summary: `${how === 'close' ? 'Kết thúc' : 'Hủy'} phiếu đặt hàng nhập ${o.code}` });
 }
 
@@ -71,11 +76,12 @@ export async function applyReceiptToOrder(tx: Tx, orderId: number, lines: { prod
     const after = Math.max(0, before + sign * qtyInOrderUnits);
     const outstanding = (r: number) => Math.max(0, ol.qty - r);
     const deltaIncoming = (outstanding(after) - outstanding(before)) * ol.conversion;
-    if (o.status !== 'cancelled' && o.status !== 'completed') await adjustCounter(tx, ol.productId, o.branchId, 'incoming', deltaIncoming);
+    // A cancelled or manually closed order has already released its incoming quantity.
+    if (o.status !== 'cancelled' && !o.closedManually) await adjustCounter(tx, ol.productId, o.branchId, 'incoming', deltaIncoming);
     await tx.purchaseOrderLine.update({ where: { id: ol.id }, data: { receivedQty: after } });
     ol.receivedQty = after;
   }
-  if (o.status === 'cancelled') return;
+  if (o.status === 'cancelled' || o.closedManually) return;
   const anyReceived = o.lines.some(l => l.receivedQty > 0);
   const allReceived = o.lines.every(l => l.receivedQty >= l.qty);
   const status = allReceived ? 'completed' : anyReceived ? 'partial' : o.confirmedAt ? 'confirmed' : 'draft';
