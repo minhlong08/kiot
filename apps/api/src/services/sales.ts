@@ -90,6 +90,7 @@ export async function createInvoice(tx: Tx, ctx: DocCtx, input: InvoiceInput, us
   const debt = isDelivery ? 0 : r.debt;
   const cod = isDelivery ? r.debt : 0;
   if (debt > 0 && !customer) throw badRequest('MUST_PAY_IN_FULL', 'Khách lẻ phải thanh toán đủ');
+  if (input.payments.some(p => p.method === 'deposit') && !input.orderId) throw badRequest('DEPOSIT_NEEDS_ORDER', 'Tiền cọc chỉ dùng khi xuất hóa đơn từ đơn đặt hàng');
   if (debt > 0 && settings.customers.debtLimit > 0 && customer!.debt + debt > settings.customers.debtLimit) {
     throw forbidden('DEBT_LIMIT', `Vượt hạn mức công nợ ${settings.customers.debtLimit.toLocaleString('en-US')} đ`);
   }
@@ -158,7 +159,9 @@ export async function createInvoice(tx: Tx, ctx: DocCtx, input: InvoiceInput, us
   if (customer) {
     if (!isDelivery) {
       await postPartnerLedger(tx, { partnerType: 'customer', partnerId: customer.id, amount: r.due, docType: 'invoice', docId: invoice.id, docCode: code, at });
-      await postPartnerLedger(tx, { partnerType: 'customer', partnerId: customer.id, amount: -(r.paid - r.change), docType: 'invoicePayment', docId: invoice.id, docCode: code, at });
+      // Deposits were credited to the customer when collected, so only new money reduces the debt here.
+      const depositUsed = input.payments.filter(p => p.method === 'deposit').reduce((t, p) => t + p.amount, 0);
+      await postPartnerLedger(tx, { partnerType: 'customer', partnerId: customer.id, amount: -(r.paid - r.change - depositUsed), docType: 'invoicePayment', docId: invoice.id, docCode: code, at });
     }
     if (input.pointsUsed) await postLoyalty(tx, { customerId: customer.id, points: -input.pointsUsed, docType: 'invoiceRedeem', docId: invoice.id, docCode: code, at });
     if (r.pointsEarned) await postLoyalty(tx, { customerId: customer.id, points: r.pointsEarned, docType: 'invoice', docId: invoice.id, docCode: code, at });

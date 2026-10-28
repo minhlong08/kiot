@@ -6,6 +6,7 @@ import type { PrismaClient } from './generated/prisma/client';
 import { getPrisma } from './db';
 import { AppError } from './lib/errors';
 import { registerAuth } from './plugins/auth';
+import './services/customerOrders';
 
 declare module 'fastify' {
   interface FastifyInstance {
