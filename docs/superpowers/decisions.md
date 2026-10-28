@@ -47,3 +47,24 @@ Rulings made during the build and deferred review findings, per milestone.
 - Final: minor (deferred): typed product/unit/variant codes not cross-checked (falls to 409 DUPLICATE)
 - Final: minor (deferred): deleting a product referenced only by draft stock docs leaves those drafts uncompletable
 - Final: minor (deferred): quantity totals in stock doc lists formatted with money flag (display only)
+
+## Milestone 3 — Suppliers & purchasing
+
+- - M2 carry-over: new document routes must be branch-scoped (ownedBy) and strip cost without cost.view (receipt line unitCost is the supplier price — it IS cost: strip unitCost/baseCost/amount fields on receipts for users without cost.view? Ruling: purchasing screens require purchaseReceipts.view which implies seeing purchase prices; only baseCost (allocated cost) is stripped) — cost if wrong: purchase prices visible to purchasing staff (intended).
+- Task 1: Ruling: plan's allocation example had wrong arithmetic (70k/40k); correct per-unit costs are 80k/80k — test fixed — cost: none
+- Task 2: Ruling: cash defaults created by seedBase and lazily by recordCash (existing DBs upgrade without a data migration) — cost: none
+- Task 3: Ruling: supplier list computes net purchases per supplier in JS (supplier tables are small) to filter by amount — cost if wrong: slow with >10k suppliers
+- Task 3: Ruling: GET/POST suppliers also allowed with purchaseReceipts.create so receiving staff can pick/quick-create suppliers — cost: none
+- Task 4: Ruling: a receipt line is matched to its PO line by product+unit and counted in that line's unit — cost if wrong: receiving a PO line in a different unit misstates receivedQty
+- Task 5: Ruling: receipts can be backdated via 'at' (seed + owners entering past paperwork); stock/ledger/voucher rows carry the same date — cost: none
+- Task 5: Ruling: allocated baseCost on receipt lines hidden without cost.view; purchase prices (unitCost) stay visible to purchasing staff — cost: buyers see supplier prices (intended)
+- Task 7: Ruling: service purchase without a supplier must be paid in full (nobody to owe) — cost: none
+- Task 7: Ruling: GET /api/cash-funds and /api/cash-categories added here (needed by purchasing forms; M6 extends them) — cost: none
+- Task 8: Ruling: added reusable ImportFileDialog and FundSelect components — cost: none
+- Task 9: Ruling: 'create receipt from PO' / 'return from receipt' navigate with a plain URL (?fromOrder= / ?fromReceipt=) the editor reads — avoids typed search params — cost: full page load
+- Task 11: Ruling: purchasing E2E written after its UI existed so it passed first run (not watched failing) — covered by the API tests that did fail first — cost: none
+- Final: Ruling: incoming invoices are company-wide (not branch-scoped) — they belong to the legal entity, not a shop — cost if wrong: branch staff see other branches' invoices
+- Final: Ruling: concurrent double-complete/cancel of the same document (no status guard in UPDATE) deferred to M5 concurrency work, which must add conditional status transitions for all documents — cost if wrong: double posting under simultaneous clicks
+- Final: minor (deferred): reversal rows dated at cancellation, original rows at effective date (by design)
+- Final: minor (deferred): incoming invoice import-template route has no permission check (template only)
+- Final: minor (deferred): purchase-order services rely on route-level branch pre-check outside the transaction
