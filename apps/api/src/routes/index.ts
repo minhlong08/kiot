@@ -15,6 +15,7 @@ import { incomingInvoiceRoutes, servicePurchaseRoutes } from './purchaseExtras';
 import { customerRoutes } from './customers';
 import { promotionRoutes } from './promotions';
 import { messagingRoutes } from './messaging';
+import { invoiceRoutes } from './invoices';
 import { stockIssueRoutes, stockTakeRoutes, transferRoutes } from './stockDocs';
 
-export const routes: RoutePlugin[] = [authRoutes, branchRoutes, roleRoutes, userRoutes, settingsRoutes, auditLogRoutes, catalogRoutes, productRoutes, stockTakeRoutes, stockIssueRoutes, transferRoutes, priceBookRoutes, fileRoutes, supplierRoutes, purchaseOrderRoutes, receiptRoutes, purchaseReturnRoutes, incomingInvoiceRoutes, servicePurchaseRoutes, customerRoutes, promotionRoutes, messagingRoutes];
+export const routes: RoutePlugin[] = [authRoutes, branchRoutes, roleRoutes, userRoutes, settingsRoutes, auditLogRoutes, catalogRoutes, productRoutes, stockTakeRoutes, stockIssueRoutes, transferRoutes, priceBookRoutes, fileRoutes, supplierRoutes, purchaseOrderRoutes, receiptRoutes, purchaseReturnRoutes, incomingInvoiceRoutes, servicePurchaseRoutes, customerRoutes, promotionRoutes, messagingRoutes, invoiceRoutes];
