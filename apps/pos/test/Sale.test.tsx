@@ -85,3 +85,13 @@ test('when the store requires a customer, checkout is blocked until one is chose
   expect(within(panel).getByRole('button', { name: 'THANH TOÁN' })).toBeDisabled();
   expect(within(panel).getByText('Cần chọn khách hàng')).toBeInTheDocument();
 });
+
+test('F1 shows the shortcut help; F8 reprints the last receipt', async () => {
+  const onReprintLast = vi.fn();
+  setup({ onReprintLast });
+  fireEvent.keyDown(window, { key: 'F1' });
+  const help = await screen.findByRole('dialog', { name: 'Phím tắt' });
+  expect(within(help).getByText('F9')).toBeInTheDocument();
+  fireEvent.keyDown(window, { key: 'F8' });
+  expect(onReprintLast).toHaveBeenCalled();
+});

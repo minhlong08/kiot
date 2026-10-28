@@ -54,6 +54,7 @@ export function App() {
   const [loadRequest, setLoadRequest] = useState<{ cart: Cart; extras?: object } | null>(null);
   const [fatal, setFatal] = useState('');
   const bootRef = useRef<Bootstrap | null>(null);
+  const lastInvoiceId = useRef<number | null>(null);
 
   const refreshQueue = useCallback(async () => setQueue(await listQueue()), []);
   const runSync = useCallback(async () => {
@@ -125,6 +126,7 @@ export function App() {
     const clientUuid = crypto.randomUUID();
     try {
       const inv = await api<{ id: number; code: string }>('/invoices', { body: { ...input, clientUuid } });
+      lastInvoiceId.current = inv.id;
       if (b.settings.pos.printAfterPayment) printInvoice(inv.id).catch(() => undefined);
       setCatalog(await syncCatalog().catch(() => catalog));
       if (cart.customerId) setCustomers(await syncCustomers().catch(() => customers));
@@ -170,7 +172,7 @@ export function App() {
   return (
     <>
       <PosScreen boot={boot} catalog={catalog} customers={customers} online={online} initial={carts ?? undefined} onCartsChange={s => { void saveCarts(s); }}
-        onSubmit={submit} onSubmitExchange={async body => { const r = await api<{ code: string; exchangeInvoice?: { id: number; code: string } }>('/returns', { body }); if (r.exchangeInvoice) printInvoice(r.exchangeInvoice.id).catch(() => undefined); setCatalog(await syncCatalog().catch(() => catalog)); return { code: `${r.code} / ${r.exchangeInvoice?.code ?? ''}` }; }}
+        onSubmit={submit} onReprintLast={() => { if (lastInvoiceId.current) void printInvoice(lastInvoiceId.current); }} onSubmitExchange={async body => { const r = await api<{ code: string; exchangeInvoice?: { id: number; code: string } }>('/returns', { body }); if (r.exchangeInvoice) printInvoice(r.exchangeInvoice.id).catch(() => undefined); setCatalog(await syncCatalog().catch(() => catalog)); return { code: `${r.code} / ${r.exchangeInvoice?.code ?? ''}` }; }}
         checkVoucher={(code, total) => api('/vouchers/check', { query: { code, total } })}
         status={status} menu={menu} openOrder={() => setOrdersOpen(true)} loadRequest={loadRequest} />
       <OrdersDialog open={ordersOpen} onClose={() => setOrdersOpen(false)} onReprint={id => { void printInvoice(id); }} onLoadOrder={id => { void loadOrder(id); }} />

@@ -15,7 +15,7 @@ export function CartLines({ cart, preview, canEditPrice, promoNames, onQty, onPa
         const r = preview.lines.find(x => x.key === l.key);
         const names = promoNames(l);
         return (
-          <div key={l.key} data-testid={`line-${l.code}`} className="grid grid-cols-[2rem_1fr_7.5rem_7rem_7rem_2rem] items-center gap-2 border-b border-slate-100 px-3 py-2">
+          <div key={l.key} data-testid={`line-${l.code}`} className="grid grid-cols-[1.25rem_minmax(0,1fr)_5.5rem_6rem_6rem_1.5rem] items-center gap-1.5 border-b border-slate-100 px-2 py-2 xl:grid-cols-[2rem_minmax(0,1fr)_7.5rem_7rem_7rem_2rem] xl:gap-2 xl:px-3">
             <span className="text-slate-400">{i + 1}</span>
             <div className="min-w-0">
               <div className="truncate font-medium">{l.name}</div>

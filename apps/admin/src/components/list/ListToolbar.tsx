@@ -20,7 +20,28 @@ export function ListToolbar(p: Props) {
   const [text, setText] = useState(p.search);
   const [menu, setMenu] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const searchBox = useRef<HTMLInputElement>(null);
   useEffect(() => setText(p.search), [p.search]);
+  // Shortcuts: F2 = the page's primary "create" action, "/" = focus search (not while typing or with a dialog open).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (document.querySelector('[role="dialog"]')) return;
+      const el = e.target as HTMLElement | null;
+      const typing = !!el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable);
+      if (e.key === 'F2') {
+        e.preventDefault();
+        if (p.onCreate) p.onCreate();
+        else if (p.createMenu?.length) p.createMenu[0].onClick();
+        else root.current?.querySelector<HTMLButtonElement>('.btn-primary:not(:disabled)')?.click();
+      } else if (e.key === '/' && !typing) {
+        e.preventDefault();
+        searchBox.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
   useEffect(() => {
     const id = setTimeout(() => { if (text !== p.search) p.onSearch(text); }, 300);
     return () => clearTimeout(id);
@@ -32,10 +53,10 @@ export function ListToolbar(p: Props) {
   }, []);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div ref={root} className="flex flex-wrap items-center gap-2">
       <label className="relative min-w-56 flex-1">
         <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input className="input pl-8" placeholder={p.placeholder ?? t('common.search')} value={text} onChange={e => setText(e.target.value)} aria-label={t('common.search')} />
+        <input ref={searchBox} className="input pl-8" placeholder={p.placeholder ?? t('common.search')} title="Phím tắt: /" value={text} onChange={e => setText(e.target.value)} aria-label={t('common.search')} />
       </label>
       <div className="flex-1" />
       {p.extra}

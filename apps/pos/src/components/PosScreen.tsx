@@ -24,7 +24,14 @@ type Props = {
   /** Opens a customer order into a new tab: returns the cart to load. */
   openOrder?: () => void;
   loadRequest?: { cart: Cart; extras?: Extras } | null;
+  /** F8: print the last completed receipt again. */
+  onReprintLast?: () => void;
 };
+
+const SHORTCUTS: [string, string][] = [
+  ['F1', 'Mở / đóng bảng phím tắt'], ['F2', 'Thêm hóa đơn mới'], ['F3', 'Tìm hàng hóa'], ['F4', 'Tìm khách hàng'], ['F8', 'In lại hóa đơn vừa thanh toán'],
+  ['F9', 'Thanh toán'], ['Alt + 1…9', 'Chuyển đến hóa đơn thứ 1…9'], ['Ctrl + Tab', 'Hóa đơn kế tiếp (Shift: trước đó)'], ['Esc', 'Đóng cửa sổ'],
+];
 
 function lineTags(promos: Promotion[], applied: number[], l: CartLine) {
   return promos.filter(p => applied.includes(p.id) && (
@@ -32,10 +39,11 @@ function lineTags(promos: Promotion[], applied: number[], l: CartLine) {
     || (p.type === 'buyXGetY' && p.getProductIds.includes(l.productId)))).map(p => p.name);
 }
 
-export function PosScreen({ boot, catalog, customers, online, onSubmit, onSubmitExchange, checkVoucher, initial, onCartsChange, status, menu, openOrder, loadRequest }: Props) {
+export function PosScreen({ boot, catalog, customers, online, onSubmit, onSubmitExchange, checkVoucher, initial, onCartsChange, status, menu, openOrder, loadRequest, onReprintLast }: Props) {
   const [state, setState] = useState<CartsState>(() => initial ?? { carts: [newCart(1)], activeId: 1 });
   const [extras, setExtras] = useState<Record<number, Extras>>({});
   const [paying, setPaying] = useState(false);
+  const [help, setHelp] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
   const [returnOpen, setReturnOpen] = useState(false);
@@ -99,7 +107,10 @@ export function PosScreen({ boot, catalog, customers, online, onSubmit, onSubmit
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'F3') { e.preventDefault(); searchRef.current?.focus(); }
+      if (e.key === 'F1') { e.preventDefault(); setHelp(h => !h); }
+      else if (e.key === 'Escape' && help) setHelp(false);
+      else if (e.key === 'F8') { e.preventDefault(); onReprintLast?.(); }
+      else if (e.key === 'F3') { e.preventDefault(); searchRef.current?.focus(); }
       else if (e.key === 'F4') { e.preventDefault(); customerRef.current?.focus(); }
       else if (e.key === 'F9') { e.preventDefault(); if (cart.lines.length) setPaying(true); }
       else if (e.key === 'F2') { e.preventDefault(); addTab(); }
@@ -118,6 +129,14 @@ export function PosScreen({ boot, catalog, customers, online, onSubmit, onSubmit
 
   return (
     <div className="flex h-full flex-col">
+      {help && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setHelp(false)}>
+          <div role="dialog" aria-label="Phím tắt" className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl" onClick={e => e.stopPropagation()}>
+            <h2 className="mb-3 text-lg font-semibold">Phím tắt</h2>
+            <table className="w-full text-sm"><tbody>{SHORTCUTS.map(([k, d]) => <tr key={k} className="border-t border-slate-100"><td className="py-1.5 pr-3"><kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">{k}</kbd></td><td>{d}</td></tr>)}</tbody></table>
+          </div>
+        </div>
+      )}
       <header className="flex items-center gap-2 bg-brand-700 px-3 py-2 text-white">
         <span className="hidden font-semibold lg:block">{APP_NAME}</span>
         <ProductSearch ref={searchRef} catalog={catalog} onPick={(p, unitId) => setCart(c => addProduct(c, p, unitId, c.priceBookId))}
@@ -160,7 +179,7 @@ export function PosScreen({ boot, catalog, customers, online, onSubmit, onSubmit
             <Row label="Khách cần trả" strong testId="total-due">{formatVnd(preview.total)}</Row>
           </div>
         </section>
-        <aside className="hidden w-[26rem] shrink-0 flex-col border-l border-slate-200 bg-slate-50 md:flex">
+        <aside className="hidden w-72 shrink-0 flex-col border-l border-slate-200 bg-slate-50 md:flex lg:w-80 xl:w-[26rem]">
           <RightPanel ref={customerRef} boot={boot} catalog={catalog} customers={customers} customer={customer} priceBookId={cart.priceBookId}
             onCustomer={pickCustomer} onPriceBook={id => setCart(c => applyPriceBook(c, catalogMap, id))} onAdd={p => setCart(c => addProduct(c, p, null, c.priceBookId))} />
           <div className="border-t border-slate-200 p-3">

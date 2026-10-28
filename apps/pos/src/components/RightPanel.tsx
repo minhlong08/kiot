@@ -60,7 +60,7 @@ export const RightPanel = forwardRef<HTMLInputElement, Props>(function RightPane
         <button type="button" aria-label="Dạng lưới" onClick={() => setGrid(true)} className={grid ? 'text-brand-700' : 'text-slate-400'}><LayoutGrid size={16} /></button>
         <button type="button" aria-label="Dạng danh sách" onClick={() => setGrid(false)} className={!grid ? 'text-brand-700' : 'text-slate-400'}><List size={16} /></button>
       </div>
-      <div className={`min-h-0 flex-1 overflow-y-auto ${grid ? 'grid grid-cols-3 content-start gap-2' : 'space-y-1'}`}>
+      <div className={`min-h-0 flex-1 overflow-y-auto ${grid ? 'grid grid-cols-2 content-start gap-2 xl:grid-cols-3' : 'space-y-1'}`}>
         {shown.map(p => (
           <button key={p.id} type="button" onClick={() => onAdd(p)} className={`rounded-lg bg-white text-left ring-1 ring-slate-200 hover:ring-brand-500 ${grid ? 'p-2' : 'flex w-full items-center gap-2 p-1.5'}`}>
             <div className={`flex items-center justify-center overflow-hidden rounded bg-slate-100 ${grid ? 'mb-1 aspect-square w-full' : 'h-10 w-10 shrink-0'}`}>
