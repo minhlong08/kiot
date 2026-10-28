@@ -178,3 +178,27 @@ Rulings made during the build and deferred review findings, per milestone.
 - Final: minor (deferred): own-timesheet view filtered to the current branch
 - Final: minor (deferred): commission base includes invoice otherIncome
 - Final: minor (deferred): employee PUT may move an employee to a branch the user can't access
+
+## Milestone 9 — Dashboard & reports
+
+- Task 1: Ruling: Doanh thu = goods revenue = invoice total − otherIncome (delivery charges etc. are 'Thu khác' in P&L); points-paid part stays revenue; return fee is other income — cost if wrong: revenue figures differ from invoice totals by other income.
+- Task 2: Ruling: failed logins use a dedicated audit action 'loginFailed' (not 'login' + summary) — simpler querying; cost if wrong: none.
+- Task 2: Ruling: activity feed is built from the latest invoices/returns/receipts rather than parsing audit summaries — cost if wrong: cash vouchers/stock docs don't appear in the feed.
+- Task 4: Ruling: xuất nhập tồn nets each movement kind (a cancelled sale offsets its sale) before classifying in/out; values at movement unit cost — cost if wrong: gross in/out of churned documents not shown.
+- Task 4: Ruling: debt reports are company-wide (partner ledger has no branch) — cost if wrong: branch managers see all-branch debts.
+- Task 5: Ruling: finance-pnl refuses users without cost.view (403) — row-based report can't be column-stripped; cost if wrong: managers without cost.view can't see profit at all.
+- Task 5: Ruling: shop-paid delivery fees enter P&L company-wide (ledger has no branch) — cost if wrong: per-branch P&L includes other branches' fees.
+- Final: fixed (Critical) dashboard/today leaked cost and profit — reviewM9 'dashboard today carries no cost or profit…' RED→GREEN
+- Final: fixed P&L used the category's current flag and dropped unpaid service purchases — 'P&L uses each voucher's own P&L flag and counts unpaid service purchases in full' RED→GREEN
+- Final: fixed (no RED: performance) quadratic array copies and per-key filters in report grouping — replaced by push/Map grouping; covered by existing report tests, suite 306/306
+- Final: fixed login alerts: N+1 queries and visible to any dashboard user — admin-only, single query; 'login alerts are for admins only' RED→GREEN
+- Final: fixed failed-login audit stored what was typed for unknown accounts; no rate limit — 'a failed login with an unknown account never stores what was typed' RED→GREEN; 20 failures/10 min per IP → 429
+- Final: fixed staff-payroll visible with reports.view — 'reports.view alone does not reveal salaries' RED→GREEN
+- Final: fixed orders-by-transaction counted cancelled orders — RED→GREEN
+- Final: fixed end-of-day revenue/returns/COD inconsistent with other reports — 'end of day agrees with itself' RED→GREEN
+- Final: fixed (re-graded: requirements §8 lists them) missing staff/channel/group/branch filters — api 'fact reports filter by seller, channel and product group' + admin 'staff, channel, group and branch filters reach the query' RED→GREEN, suite 306/306 + admin 48/48
+- Final: minor (deferred): stock-movement values gross while quantities are netted per kind
+- Final: minor (deferred): report/analytics default 'from' and P&L default year use UTC month/year (wrong 00:00–07:00 VN on the 1st)
+- Final: minor (deferred): ABC class uses cumulative share including the item (a dominant item can be labelled B)
+- Final: minor (deferred): slow movers list a product once per branch with branchId=all
+- Final: minor (deferred): unused third tuple element in P&L LINES
