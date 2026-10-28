@@ -202,3 +202,23 @@ Rulings made during the build and deferred review findings, per milestone.
 - Final: minor (deferred): ABC class uses cumulative share including the item (a dominant item can be labelled B)
 - Final: minor (deferred): slow movers list a product once per branch with branchId=all
 - Final: minor (deferred): unused third tuple element in P&L LINES
+
+## Milestone 10 — Polish, packaging, data safety
+
+- Task 1: Ruling: template kinds limited to invoice (58/80/A4) and cash voucher (A5) — the documents actually printed today; return/order/label prints keep their built-in layouts — cost if wrong: those layouts aren't editable yet.
+- Task 1: Ruling: template stored per kind/size row (no named alternatives / isDefault column); "default" = no saved row — cost if wrong: one active template per size.
+- Task 2: Note: settings.orders.rounding (computeSale) and API CUSTOMER_REQUIRED already existed since M5 — the M6 'not built' ruling was wrong; only the POS guard and per-group VAT were missing.
+- Task 3: Ruling: POS tab switching stays Alt+1…9 (already built) instead of the plan's Ctrl+1…9 — Ctrl+digit switches browser tabs — cost if wrong: none.
+- Task 4: Ruling: Postgres uses 'prisma db push' from a generated provider-swapped schema (no separate PG migration history) — cost if wrong: schema changes that need data migration must be handled by hand on PG.
+- Task 4: Docker smoke (manual, recorded): started Docker Desktop locally; 'docker compose -p pdsmoke up --build' → db push + full demo seed on postgres:17, login, password change, sale HD000062, manual KH900001 then auto KH900002 (GREATEST path), reports sales-by-time/stock-movement/finance-pnl and dashboard OK; stack removed with 'down -v'.
+- Task 4: Ruling (minor, deferred): on Postgres 'contains' filters are case-sensitive (SQLite LIKE is not for ASCII) — lowercase code searches (hd0001) miss on PG.
+- Task 5: Ruling: backup version = fingerprint of tables and columns (not app semver) — a backup restores only into the same layout; cost if wrong: backups from before a schema change can't be restored without a converter.
+- Task 5: Ruling: uploaded images (data/uploads) are not inside the JSON backup — stated on the screen and in README; cost if wrong: images need a separate copy.
+- Final: fixed print templates could run script in the app origin (privilege escalation via settings.edit) — admin 'templates print in a sandboxed frame…' + pos 'receipts print in a sandboxed frame…' RED→GREEN; e2e prints a report through the sandboxed frame without errors; all five print frames sandboxed
+- Final: fixed (no RED: needs a >200 MB payload) backups larger than the restore limit — limit raised to 1 GB, per-row zod validation dropped (Prisma validates in the transaction), limit stated in README; backup suite 3/3
+- Final: fixed (minor, cheap) prisma-provider.mjs could silently miss the output-path rewrite — now asserts both rewrites
+- Final: minor (deferred): reset-demo wipe and seed are not one transaction (a failing seed leaves a partial store)
+- Final: minor (deferred): restore keeps the caller's session by user id only (not username); other sessions briefly valid until deleted after commit
+- Final: minor (deferred): SPA fallback ignores HEAD requests
+- Final: minor (deferred): Docker image runs as root with dev dependencies via tsx; .dockerignore lacks .env*
+- Final: minor (deferred): admin F2 fires while typing in an input; POS F2/F8/F9 act behind the F1 help / payment panel; F8 doesn't track exchange or offline-queued sales
