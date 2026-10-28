@@ -586,3 +586,131 @@ model ServicePurchase {
   createdById Int
   createdAt   DateTime @default(now())
 }
+
+// ───────────── Customers, loyalty, promotions, messaging (M4) ─────────────
+
+model CustomerGroup {
+  id              Int    @id @default(autoincrement())
+  name            String @unique
+  discountPercent Int    @default(0)
+  minTotalSpent   Int?
+  note            String @default("")
+}
+
+model Customer {
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  name           String
+  searchText     String    @default("")
+  phone          String    @default("")
+  phone2         String    @default("")
+  email          String    @default("")
+  birthday       DateTime?
+  birthMonth     Int?
+  gender         String    @default("")
+  type           String    @default("person")
+  company        String    @default("")
+  taxCode        String    @default("")
+  address        String    @default("")
+  ward           String    @default("")
+  province       String    @default("")
+  groupId        Int?
+  note           String    @default("")
+  isActive       Boolean   @default(true)
+  debt           Int       @default(0)
+  points         Int       @default(0)
+  totalSpent     Int       @default(0)
+  lastPurchaseAt DateTime?
+  createdById    Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([phone])
+  @@index([searchText])
+  @@index([groupId])
+}
+
+model LoyaltyTransaction {
+  id           Int      @id @default(autoincrement())
+  customerId   Int
+  docType      String
+  docId        Int
+  docCode      String
+  points       Int
+  balanceAfter Int
+  note         String   @default("")
+  createdAt    DateTime @default(now())
+
+  @@index([customerId, id])
+  @@index([docType, docId])
+}
+
+model Promotion {
+  id               Int       @id @default(autoincrement())
+  code             String    @unique
+  name             String
+  type             String
+  isActive         Boolean   @default(true)
+  startAt          DateTime?
+  endAt            DateTime?
+  daysOfWeek       String    @default("[]")
+  hours            String    @default("[]")
+  branchIds        String    @default("[]")
+  customerGroupIds String    @default("[]")
+  combinable       Boolean   @default(false)
+  config           String    @default("{}")
+  note             String    @default("")
+  createdAt        DateTime  @default(now())
+}
+
+model VoucherCampaign {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  name        String
+  value       Int
+  unit        String
+  maxDiscount Int?
+  minOrder    Int       @default(0)
+  startAt     DateTime?
+  endAt       DateTime?
+  multiUse    Boolean   @default(false)
+  combinable  Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+}
+
+model Voucher {
+  id            Int       @id @default(autoincrement())
+  campaignId    Int
+  code          String    @unique
+  status        String    @default("unused")
+  usedAt        DateTime?
+  usedInvoiceId Int?
+  usageCount    Int       @default(0)
+  createdAt     DateTime  @default(now())
+
+  @@index([campaignId])
+}
+
+model MessageTemplate {
+  id        Int      @id @default(autoincrement())
+  name      String
+  channel   String   @default("sms")
+  body      String
+  createdAt DateTime @default(now())
+}
+
+model MessageLog {
+  id          Int      @id @default(autoincrement())
+  customerId  Int?
+  phone       String   @default("")
+  channel     String
+  body        String
+  status      String
+  provider    String   @default("")
+  error       String   @default("")
+  createdById Int
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+}

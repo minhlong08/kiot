@@ -19,3 +19,9 @@ export async function mainBranchId(prisma: PrismaClient) {
 export async function makeSupplier(prisma: PrismaClient, name = `NCC ${++seq}`) {
   return prisma.supplier.create({ data: { code: `S${String(++seq).padStart(5, '0')}`, name, searchText: normalizeVi(name) } });
 }
+
+export async function makeCustomer(prisma: PrismaClient, o: Partial<{ name: string; phone: string; groupId: number | null; totalSpent: number }> = {}) {
+  const name = o.name ?? `Khách ${++seq}`;
+  const code = `C${String(++seq).padStart(5, '0')}`;
+  return prisma.customer.create({ data: { code, name, phone: o.phone ?? '', groupId: o.groupId ?? null, totalSpent: o.totalSpent ?? 0, searchText: normalizeVi(`${code} ${name} ${o.phone ?? ''}`) } });
+}
