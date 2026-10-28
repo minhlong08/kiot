@@ -1,0 +1,9 @@
+node_modules
+dist
+data/*.db*
+data/uploads
+.env
+playwright-report
+test-results
+.superpowers
+*.tsbuildinfo
