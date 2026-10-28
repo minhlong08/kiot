@@ -1,6 +1,6 @@
 import { WEEKDAY_LABELS, bucketKey, groupFacts } from '@pd/shared';
 import { allFacts, type Fact } from '../services/reportFacts';
-import { margin, register, totalsOf, type Column, type ReportCtx } from './types';
+import { REPORTS, margin, register, totalsOf, type Column, type ReportCtx } from './types';
 
 const range = (c: ReportCtx) => ({ from: c.from, to: c.to, branchId: c.branchId });
 /** Revenue/returns/net/cost/profit of a group of facts. */
@@ -108,3 +108,6 @@ register('orders-by-transaction', async c => {
   const columns: Column[] = [{ key: 'code', label: 'Mã đặt hàng' }, { key: 'at', label: 'Thời gian' }, { key: 'customer', label: 'Khách hàng' }, { key: 'channel', label: 'Kênh' }, { key: 'total', label: 'Tổng tiền', money: true }, { key: 'deposit', label: 'Đặt cọc', money: true }, { key: 'status', label: 'Trạng thái' }];
   return { title: 'Đặt hàng theo giao dịch', columns, rows, totals: totalsOf(columns, rows) };
 });
+
+/** Báo cáo nhân viên › bán hàng: the same view as sales by staff. */
+register('staff-sales', c => REPORTS.get('sales-by-staff')!(c));
