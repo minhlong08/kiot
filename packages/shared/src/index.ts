@@ -15,3 +15,6 @@ export * from './loyalty';
 export * from './promotions';
 export * from './schemas/customers';
 export * from './data/provinces';
+export * from './sale';
+export * from './vietqr';
+export * from './schemas/sales';
