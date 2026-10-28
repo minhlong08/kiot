@@ -4,6 +4,7 @@ import { audit } from './audit';
 import { recordCash } from './cash';
 import { postPartnerLedger } from './partnerLedger';
 import { cancelInvoice } from './sales';
+import { autoIssueEInvoice } from './tax';
 import type { DocCtx } from './stockDocs';
 
 export const DELIVERY_STATUS_LABELS: Record<string, string> = {
@@ -34,7 +35,10 @@ export async function setDeliveryStatus(tx: Tx, ctx: DocCtx, invoiceId: number, 
 
   if (to === 'failed' || to === 'returning') await tx.invoice.update({ where: { id: invoiceId }, data: { status: 'undeliverable' } });
   if (to === 'delivering' && inv.status === 'undeliverable') await tx.invoice.update({ where: { id: invoiceId }, data: { status: 'processing' } });
-  if (to === 'delivered') await completeDelivered(tx, ctx, inv, d);
+  if (to === 'delivered') {
+    await completeDelivered(tx, ctx, inv, d);
+    await autoIssueEInvoice(tx, ctx, invoiceId);
+  }
   if (to === 'returned') await cancelInvoice(tx, ctx, invoiceId, { fromDelivery: true });
   await audit(tx, ctx, { action: 'update', entity: 'Delivery', entityId: invoiceId, entityCode: inv.code, summary: `Vận đơn ${inv.code}: ${DELIVERY_STATUS_LABELS[d.status]} → ${DELIVERY_STATUS_LABELS[to]}${opts.note ? ` (${opts.note})` : ''}` });
   return tx.invoiceDelivery.findUniqueOrThrow({ where: { invoiceId } });

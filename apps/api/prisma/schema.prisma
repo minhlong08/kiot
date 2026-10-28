@@ -956,3 +956,30 @@ model SalesChannel {
   name     String  @unique
   isActive Boolean @default(true)
 }
+
+model EInvoice {
+  id             Int       @id @default(autoincrement())
+  invoiceId      Int
+  branchId       Int
+  series         String
+  number         String?
+  lookupCode     String    @default("")
+  status         String    @default("draft")
+  buyerName      String    @default("")
+  buyerTaxCode   String    @default("")
+  buyerAddress   String    @default("")
+  buyerEmail     String    @default("")
+  totalBeforeVat Int       @default(0)
+  vatAmount      Int       @default(0)
+  total          Int       @default(0)
+  ratesJson      String    @default("[]")
+  provider       String    @default("stub")
+  issuedAt       DateTime?
+  cancelledAt    DateTime?
+  cancelReason   String    @default("")
+  createdById    Int
+  createdAt      DateTime  @default(now())
+
+  @@index([invoiceId])
+  @@index([status, issuedAt])
+}

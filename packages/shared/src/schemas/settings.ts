@@ -60,6 +60,12 @@ export const settingsSchema = z.object({
   tax: z.object({
     mode: z.enum(['household', 'company']).default('household'),
     defaultVatRate: z.number().min(0).max(100).default(8),
+    /** Business household: flat VAT and personal income tax as % of revenue (goods distribution: 1% + 0.5%). */
+    householdVatRate: z.number().min(0).max(100).default(1),
+    householdPitRate: z.number().min(0).max(100).default(0.5),
+    einvoiceSeries: z.string().trim().regex(/^[0-9A-Z]{1,10}$/, 'Ký hiệu gồm chữ in hoa và số').default('1C26TPD'),
+    /** Create and issue the e-invoice automatically when a sale completes. */
+    autoIssue: z.boolean().default(false),
   }).prefault({}),
 });
 export type Settings = z.infer<typeof settingsSchema>;

@@ -14,6 +14,7 @@ import { bookApplies } from './priceBooks';
 import { autoAssignGroup } from './customers';
 import { isVariantMaster } from './products';
 import { transition } from './transition';
+import { assertInvoiceCancellable, autoIssueEInvoice } from './tax';
 import type { DocCtx } from './stockDocs';
 
 const forbidden = (code: string, message: string) => new AppError(409, code, message);
@@ -194,6 +195,7 @@ export async function createInvoice(tx: Tx, ctx: DocCtx, input: InvoiceInput, us
   if (input.delivery) await tx.invoiceDelivery.create({ data: { ...input.delivery, invoiceId: invoice.id, cod } });
   if (input.orderId) await applyInvoiceToOrder(tx, ctx, input.orderId, invoice.id);
 
+  if (!isDelivery) await autoIssueEInvoice(tx, ctx, invoice.id);
   await audit(tx, ctx, { action: 'create', entity: 'Invoice', entityId: invoice.id, entityCode: code, summary: `Bán hàng ${code}: ${r.total.toLocaleString('en-US')}${customer ? ` - ${customer.name}` : ''}` });
   return tx.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
 }
@@ -218,6 +220,7 @@ export async function cancelInvoice(tx: Tx, ctx: DocCtx, id: number, opts: { fro
     throw conflict('IS_EXCHANGE', 'Đây là hóa đơn đổi hàng, hãy hủy phiếu trả hàng tương ứng');
   }
   if (await tx.saleReturn.count({ where: { invoiceId: id, status: 'completed' } })) throw conflict('HAS_RETURNS', 'Hóa đơn đã có phiếu trả hàng, hãy hủy phiếu trả trước');
+  await assertInvoiceCancellable(tx, id);
   await transition(tx, 'invoice', id, ['completed', 'processing', 'undeliverable'], 'cancelled', { cancelledAt: new Date() });
   await reverseDocument(tx, 'invoice', id, 'invoice_cancel');
   for (const t of ['invoice', 'invoicePayment', 'deliveryCod', 'deliveryFee']) await reversePartnerDocument(tx, t, id, `${t}_cancel`);
