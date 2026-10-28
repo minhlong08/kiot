@@ -7,3 +7,5 @@ export * from './permissions';
 export * from './schemas/common';
 export * from './schemas/auth';
 export * from './schemas/settings';
+export * from './pricing';
+export * from './schemas/products';

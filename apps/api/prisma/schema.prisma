@@ -103,3 +103,248 @@ model AuditLog {
   @@index([entity, entityId])
   @@index([createdAt])
 }
+
+// ───────────── Catalogue & stock (M2) ─────────────
+
+model ProductGroup {
+  id       Int    @id @default(autoincrement())
+  name     String
+  parentId Int?
+  sort     Int    @default(0)
+
+  @@index([parentId])
+}
+
+model Brand {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+}
+
+model Location {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+}
+
+model Product {
+  id                Int      @id @default(autoincrement())
+  code              String   @unique
+  barcode           String?
+  name              String
+  searchText        String   @default("")
+  type              String   @default("goods")
+  groupId           Int?
+  brandId           Int?
+  locationId        Int?
+  parentId          Int?
+  variantLabel      String   @default("")
+  attributes        String   @default("[]")
+  unit              String   @default("")
+  price             Int      @default(0)
+  cost              Int      @default(0)
+  minStock          Int      @default(0)
+  maxStock          Int      @default(999999999)
+  weight            Int      @default(0)
+  description       String   @default("")
+  note              String   @default("")
+  orderNoteTemplate String   @default("")
+  vatRate           Int?
+  loyaltyEnabled    Boolean  @default(true)
+  points            Int?
+  isDirectSale      Boolean  @default(true)
+  sellOnline        Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  allBranches       Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([searchText])
+  @@index([groupId])
+  @@index([parentId])
+  @@index([barcode])
+}
+
+model ProductBranch {
+  productId Int
+  branchId  Int
+
+  @@id([productId, branchId])
+}
+
+model ProductUnit {
+  id           Int     @id @default(autoincrement())
+  productId    Int
+  name         String
+  conversion   Int
+  code         String  @unique
+  barcode      String?
+  price        Int
+  isDirectSale Boolean @default(true)
+
+  @@index([productId])
+  @@index([barcode])
+}
+
+model ComboItem {
+  comboId Int
+  itemId  Int
+  qty     Int
+
+  @@id([comboId, itemId])
+}
+
+model ProductImage {
+  id        Int    @id @default(autoincrement())
+  productId Int
+  url       String
+  sort      Int    @default(0)
+
+  @@index([productId])
+}
+
+model ProductWarranty {
+  id           Int    @id @default(autoincrement())
+  productId    Int
+  kind         String
+  name         String
+  duration     Int
+  durationUnit String
+
+  @@index([productId])
+}
+
+model BranchStock {
+  productId Int
+  branchId  Int
+  onHand    Int @default(0)
+  cost      Int @default(0)
+  reserved  Int @default(0)
+  incoming  Int @default(0)
+
+  @@id([productId, branchId])
+}
+
+model StockLedger {
+  id           Int      @id @default(autoincrement())
+  productId    Int
+  branchId     Int
+  docType      String
+  docId        Int
+  docCode      String
+  qtyChange    Int
+  unitCost     Int
+  balanceAfter Int
+  costAfter    Int
+  note         String   @default("")
+  createdAt    DateTime @default(now())
+
+  @@index([productId, branchId, id])
+  @@index([docType, docId])
+  @@index([createdAt])
+}
+
+model PriceBook {
+  id                Int       @id @default(autoincrement())
+  name              String    @unique
+  isActive          Boolean   @default(true)
+  startAt           DateTime?
+  endAt             DateTime?
+  branchIds         String    @default("[]")
+  customerGroupIds  String    @default("[]")
+  userIds           String    @default("[]")
+  allowOutsideItems Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+}
+
+model PriceBookItem {
+  priceBookId Int
+  productId   Int
+  price       Int
+
+  @@id([priceBookId, productId])
+}
+
+model StockTake {
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  branchId       Int
+  status         String    @default("draft")
+  note           String    @default("")
+  createdById    Int
+  balancedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  totalActualQty Int       @default(0)
+  totalDiffQty   Int       @default(0)
+  totalDiffValue Int       @default(0)
+  lines          StockTakeLine[]
+}
+
+model StockTakeLine {
+  id          Int       @id @default(autoincrement())
+  stockTakeId Int
+  stockTake   StockTake @relation(fields: [stockTakeId], references: [id], onDelete: Cascade)
+  productId   Int
+  systemQty   Int       @default(0)
+  actualQty   Int
+  diffQty     Int       @default(0)
+  cost        Int       @default(0)
+  diffValue   Int       @default(0)
+
+  @@index([stockTakeId])
+}
+
+model StockIssue {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  kind        String
+  branchId    Int
+  status      String    @default("draft")
+  reason      String    @default("")
+  note        String    @default("")
+  createdById Int
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  totalQty    Int       @default(0)
+  totalValue  Int       @default(0)
+  lines       StockIssueLine[]
+}
+
+model StockIssueLine {
+  id        Int        @id @default(autoincrement())
+  issueId   Int
+  issue     StockIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  productId Int
+  qty       Int
+  cost      Int        @default(0)
+  value     Int        @default(0)
+
+  @@index([issueId])
+}
+
+model Transfer {
+  id               Int       @id @default(autoincrement())
+  code             String    @unique
+  fromBranchId     Int
+  toBranchId       Int
+  status           String    @default("draft")
+  note             String    @default("")
+  createdById      Int
+  sentAt           DateTime?
+  receivedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  totalSentQty     Int       @default(0)
+  totalReceivedQty Int       @default(0)
+  totalValue       Int       @default(0)
+  lines            TransferLine[]
+}
+
+model TransferLine {
+  id          Int      @id @default(autoincrement())
+  transferId  Int
+  transfer    Transfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  productId   Int
+  qtySent     Int
+  qtyReceived Int      @default(0)
+  cost        Int      @default(0)
+
+  @@index([transferId])
+}
