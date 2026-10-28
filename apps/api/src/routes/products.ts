@@ -5,7 +5,9 @@ import { Prisma } from '../db';
 import type { Tx } from '../db';
 import { hasPerm, requirePermission, user } from '../plugins/auth';
 import { dateParam, listParam, orderByOf, parseList } from '../lib/list';
-import { sendXlsx } from '../lib/excel';
+import { readXlsx, sendXlsx } from '../lib/excel';
+import { badRequest } from '../lib/errors';
+import { IMPORT_COLUMNS, IMPORT_EXAMPLE, importProducts } from '../services/productImport';
 import { notFound } from '../lib/errors';
 import { audit } from '../services/audit';
 import { deleteProduct, expectedOutDates, saveProduct } from '../services/products';
@@ -75,6 +77,7 @@ async function stocksFor(tx: Tx, products: { id: number; type: string }[], branc
 export async function productRoutes(app: FastifyInstance) {
   const db = app.prisma;
   const canCost = (req: FastifyRequest) => hasPerm(req.user, 'cost.view');
+  const ctxOf = (req: FastifyRequest) => ({ ...req.auditCtx, branchId: user(req).branchId });
 
   async function listRows(req: FastifyRequest, where: Prisma.ProductWhereInput, page?: { skip: number; take: number; sort?: string }) {
     const u = user(req);
@@ -130,6 +133,24 @@ export async function productRoutes(app: FastifyInstance) {
       { header: 'Giá bán', key: 'price', money: true }, ...(showCost ? [{ header: 'Giá vốn', key: 'cost', money: true }] : []),
       { header: 'Tồn kho', key: 'onHand' }, { header: 'Khách đặt', key: 'reserved' }, { header: 'Thời gian tạo', key: 'created' },
     ], rows.map(r => ({ ...r, created: formatDateTime(r.createdAt) })));
+  });
+
+  app.get('/api/products/import-template', { preHandler: requirePermission('products.create') }, async (_req, reply) =>
+    sendXlsx(reply, 'mau-import-hang-hoa.xlsx', IMPORT_COLUMNS, [IMPORT_EXAMPLE]));
+
+  app.post('/api/products/import', { preHandler: requirePermission('products.create') }, async req => {
+    const mode = (req.query as { mode?: string }).mode === 'upsert' ? 'upsert' : 'create';
+    const file = await req.file();
+    if (!file) throw badRequest('NO_FILE', 'Chưa chọn file');
+    let rows: Record<string, unknown>[];
+    try {
+      rows = await readXlsx(await file.toBuffer());
+    } catch {
+      throw badRequest('BAD_FILE', 'File không đúng định dạng Excel (.xlsx)');
+    }
+    if (!rows.length) throw badRequest('EMPTY_FILE', 'File không có dữ liệu');
+    if (rows.length > 5000) throw badRequest('TOO_MANY_ROWS', 'Tối đa 5.000 dòng mỗi lần import');
+    return db.$transaction(tx => importProducts(tx, ctxOf(req), rows, mode), { timeout: 120_000 });
   });
 
   app.get('/api/products/lookup', async req => {
@@ -219,8 +240,6 @@ export async function productRoutes(app: FastifyInstance) {
     const showCost = canCost(req);
     return { items: items.map(({ unitCost, costAfter, ...r }) => ({ ...r, ...(showCost ? { unitCost, costAfter } : {}) })), total };
   });
-
-  const ctxOf = (req: FastifyRequest) => ({ ...req.auditCtx, branchId: user(req).branchId });
 
   app.post('/api/products', { preHandler: requirePermission('products.create') }, async req => {
     const input = productInputSchema.parse(req.body);

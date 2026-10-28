@@ -53,3 +53,11 @@ export async function createTestApp() {
     },
   };
 }
+
+/** Builds a multipart/form-data payload with one file field for app.inject. */
+export function multipart(field: string, filename: string, content: Buffer, contentType = 'application/octet-stream') {
+  const boundary = '----pdtest' + Math.random().toString(16).slice(2);
+  const head = Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${field}"; filename="${filename}"\r\nContent-Type: ${contentType}\r\n\r\n`);
+  const tail = Buffer.from(`\r\n--${boundary}--\r\n`);
+  return { payload: Buffer.concat([head, content, tail]), headers: { 'content-type': `multipart/form-data; boundary=${boundary}` } };
+}
