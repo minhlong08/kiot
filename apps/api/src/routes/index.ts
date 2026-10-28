@@ -6,5 +6,6 @@ import { userRoutes } from './users';
 import { settingsRoutes } from './settings';
 import { auditLogRoutes } from './auditLogs';
 import { catalogRoutes } from './catalog';
+import { productRoutes } from './products';
 
-export const routes: RoutePlugin[] = [authRoutes, branchRoutes, roleRoutes, userRoutes, settingsRoutes, auditLogRoutes, catalogRoutes];
+export const routes: RoutePlugin[] = [authRoutes, branchRoutes, roleRoutes, userRoutes, settingsRoutes, auditLogRoutes, catalogRoutes, productRoutes];
