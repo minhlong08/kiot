@@ -22,6 +22,6 @@ Object.assign(ENTITY_LABELS, {
   StockTake: 'Kiểm kho', StockIssue: 'Xuất kho', Transfer: 'Chuyển hàng',
   Supplier: 'Nhà cung cấp', SupplierGroup: 'Nhóm NCC', PurchaseOrder: 'Đặt hàng nhập', PurchaseReceipt: 'Nhập hàng', PurchaseReturn: 'Trả hàng nhập',
   IncomingInvoice: 'Hóa đơn đầu vào', ServicePurchase: 'Mua dịch vụ', CashVoucher: 'Sổ quỹ',
-  Invoice: 'Hóa đơn', SaleReturn: 'Trả hàng', CustomerOrder: 'Đặt hàng', Shift: 'Ca làm việc', CashFund: 'Quỹ tiền', DeliveryPartner: 'Đối tác giao hàng', Delivery: 'Vận đơn', CodReconciliation: 'Đối soát COD', CashCategory: 'Loại thu chi',
+  Invoice: 'Hóa đơn', SaleReturn: 'Trả hàng', CustomerOrder: 'Đặt hàng', Shift: 'Ca làm việc', CashFund: 'Quỹ tiền', DeliveryPartner: 'Đối tác giao hàng', Delivery: 'Vận đơn', CodReconciliation: 'Đối soát COD', SalesChannel: 'Kênh bán', CashCategory: 'Loại thu chi',
   Customer: 'Khách hàng', CustomerGroup: 'Nhóm khách hàng', Promotion: 'Khuyến mại', VoucherCampaign: 'Voucher', MessageLog: 'Tin nhắn',
 });

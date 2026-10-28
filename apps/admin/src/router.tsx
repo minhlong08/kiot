@@ -9,6 +9,10 @@ import { PAGES } from './pages/registry';
 import { useAuth } from './lib/auth';
 import { setAuthErrorHandler } from './lib/api';
 import { t } from './lib/i18n';
+import { ShopLayout } from './pages/shop/ShopLayout';
+import { ShopHome } from './pages/shop/ShopHome';
+import { ShopProduct } from './pages/shop/ShopProduct';
+import { ShopCheckout } from './pages/shop/ShopCheckout';
 
 function Authed() {
   const { me, loading } = useAuth();
@@ -25,6 +29,13 @@ function Authed() {
 const rootRoute = createRootRoute({ component: Outlet });
 const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: '/login', component: LoginPage });
 const changePasswordRoute = createRoute({ getParentRoute: () => rootRoute, path: '/change-password', component: ChangePasswordPage });
+// Public storefront: no session, own layout.
+const shopRoute = createRoute({ getParentRoute: () => rootRoute, path: '/shop', component: ShopLayout });
+const shopRoutes = [
+  createRoute({ getParentRoute: () => shopRoute, path: '/', component: ShopHome }),
+  createRoute({ getParentRoute: () => shopRoute, path: '/p/$id', component: ShopProduct }),
+  createRoute({ getParentRoute: () => shopRoute, path: '/cart', component: ShopCheckout }),
+];
 const authedRoute = createRoute({ getParentRoute: () => rootRoute, id: 'authed', component: Authed });
 const indexRoute = createRoute({ getParentRoute: () => authedRoute, path: '/', component: () => <Navigate to="/dashboard" /> });
 
@@ -32,6 +43,6 @@ const paths = [...new Set([...NAV_PATHS, ...Object.keys(PAGES)])];
 const pageRoutes = paths.map(path => createRoute({ getParentRoute: () => authedRoute, path, component: PAGES[path] ?? ComingSoonPage }));
 const notFoundRoute = createRoute({ getParentRoute: () => authedRoute, path: '$', component: ComingSoonPage });
 
-const routeTree = rootRoute.addChildren([loginRoute, changePasswordRoute, authedRoute.addChildren([indexRoute, ...pageRoutes, notFoundRoute])]);
+const routeTree = rootRoute.addChildren([loginRoute, changePasswordRoute, shopRoute.addChildren(shopRoutes), authedRoute.addChildren([indexRoute, ...pageRoutes, notFoundRoute])]);
 
 export const router = createRouter({ routeTree, defaultPreload: false });

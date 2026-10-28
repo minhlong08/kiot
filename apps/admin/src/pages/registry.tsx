@@ -22,6 +22,9 @@ import { CashbookPage } from './cashbook/CashbookPage';
 import { WaybillsPage } from './delivery/WaybillsPage';
 import { DeliveriesPage } from './delivery/DeliveriesPage';
 import { DeliveryPartnersPage } from './delivery/DeliveryPartnersPage';
+import { ChannelsPage } from './online/ChannelsPage';
+import { OnlineOrdersPage } from './online/OnlineOrdersPage';
+import { StorefrontPage } from './online/StorefrontPage';
 import { makeStockDocListPage } from './stock/StockDocListPage';
 import { makeStockDocEditor } from './stock/StockDocEditor';
 import { STOCK_DOCS, type StockDocKind } from './stock/configs';
@@ -64,5 +67,8 @@ export const PAGES: Record<string, FC> = {
   '/waybills': WaybillsPage,
   '/deliveries': DeliveriesPage,
   '/delivery-partners': DeliveryPartnersPage,
+  '/online/channels': ChannelsPage,
+  '/online/orders': OnlineOrdersPage,
+  '/online/storefront': StorefrontPage,
   ...stockPages,
 };
