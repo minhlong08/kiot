@@ -46,3 +46,20 @@ test('demo deliveries, online orders and e-invoices keep partner and customer le
   expect((await p.eInvoice.findMany({ where: { status: 'issued' } })).map(e => e.number)).toEqual(['0000001', '0000002', '0000003', '0000004', '0000005']);
   expect(await p.branchStock.count({ where: { onHand: { lt: 0 } } })).toBe(0);
 });
+
+test('demo staff: logins linked, timesheets recorded, last month paid as "Chi lương"', async () => {
+  const { seedStaff } = await import('../src/seed/staff');
+  const p = db.prisma;
+  await seedStaff(p, new Date('2026-10-28T03:00:00Z'));
+  const emps = await p.employee.findMany();
+  expect(emps).toHaveLength(2);
+  expect(emps.every(e => e.userId)).toBe(true);
+  expect(await p.timesheet.count({ where: { status: 'present', date: { gte: '2026-09-01', lte: '2026-09-30' } } })).toBeGreaterThan(30);
+  const period = await p.payrollPeriod.findFirstOrThrow();
+  expect([period.from, period.to, period.status]).toEqual(['2026-09-01', '2026-09-30', 'locked']);
+  const sheets = await p.paysheet.findMany({ where: { periodId: period.id } });
+  expect(sheets).toHaveLength(2);
+  expect(sheets.every(s => s.total > 0 && s.paid === s.total)).toBe(true);
+  expect(sheets.find(s => s.employeeId === emps[1].id)!.commission).toBeGreaterThan(0);
+  expect(await p.cashVoucher.count({ where: { sourceType: 'payroll' } })).toBe(2);
+});
