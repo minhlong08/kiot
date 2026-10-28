@@ -202,6 +202,4 @@ export async function servicePurchaseRoutes(app: FastifyInstance) {
       return row;
     });
   });
-  app.get('/api/cash-funds', async () => db.cashFund.findMany({ where: { isActive: true }, orderBy: { id: 'asc' } }));
-  app.get('/api/cash-categories', async () => db.cashCategory.findMany({ orderBy: [{ kind: 'asc' }, { name: 'asc' }] }));
 }
