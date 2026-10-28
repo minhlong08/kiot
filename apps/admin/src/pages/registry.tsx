@@ -5,6 +5,8 @@ import { AuditLogPage } from './settings/AuditLogPage';
 import { ProductsPage } from './products/ProductsPage';
 import { PriceBooksPage } from './priceBooks/PriceBooksPage';
 import { SuppliersPage } from './suppliers/SuppliersPage';
+import { PurchaseOrderEditor, ReceiptEditor } from './purchasing/PurchaseEditor';
+import { makePurchaseDocsPage } from './purchasing/PurchaseDocsPage';
 import { makeStockDocListPage } from './stock/StockDocListPage';
 import { makeStockDocEditor } from './stock/StockDocEditor';
 import { STOCK_DOCS, type StockDocKind } from './stock/configs';
@@ -27,5 +29,9 @@ export const PAGES: Record<string, FC> = {
   '/products': ProductsPage,
   '/price-books': PriceBooksPage,
   '/suppliers': SuppliersPage,
+  '/purchase-receipts': makePurchaseDocsPage('receipt'),
+  '/purchase-receipts/$id': ReceiptEditor,
+  '/purchase-orders': makePurchaseDocsPage('order'),
+  '/purchase-orders/$id': PurchaseOrderEditor,
   ...stockPages,
 };
