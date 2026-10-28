@@ -808,7 +808,50 @@ model InvoiceDelivery {
   note          String   @default("")
   status        String   @default("pending")
   trackingCode  String   @default("")
+  feePayer      String   @default("shop")
+  deliveredAt   DateTime?
+  reconciledAt  DateTime?
+  reconciliationId Int?
   updatedAt     DateTime @default(now())
+
+  @@index([status])
+  @@index([partnerId, status])
+}
+
+model DeliveryPartner {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique
+  name       String
+  phone      String   @default("")
+  email      String   @default("")
+  address    String   @default("")
+  note       String   @default("")
+  feeMode    String   @default("flat")
+  flatFee    Int      @default(0)
+  feePerKg   Int      @default(0)
+  debt       Int      @default(0)
+  isActive   Boolean  @default(true)
+  searchText String   @default("")
+  createdAt  DateTime @default(now())
+}
+
+model CodReconciliation {
+  id            Int       @id @default(autoincrement())
+  code          String    @unique
+  partnerId     Int
+  branchId      Int
+  amount        Int
+  codTotal      Int
+  feeTotal      Int
+  fundId        Int
+  cashVoucherId Int?
+  status        String    @default("completed")
+  note          String    @default("")
+  createdById   Int
+  createdAt     DateTime  @default(now())
+  cancelledAt   DateTime?
+
+  @@index([partnerId, createdAt])
 }
 
 model SaleReturn {
