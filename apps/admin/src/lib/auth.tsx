@@ -1,5 +1,5 @@
-import { createContext, useContext, type ReactNode } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
 
 export type Me = {
@@ -20,19 +20,26 @@ type AuthValue = {
 
 const Ctx = createContext<AuthValue | null>(null);
 
+/**
+ * Auth lives in React state (not the query cache) so that `await refresh(); navigate(...)`
+ * commits the new user and the new route in the same render; route guards never see a stale user.
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
-  const q = useQuery({
-    queryKey: ['me'],
-    queryFn: () => api<Me>('/auth/me').catch(() => null),
-    staleTime: 60_000,
-  });
-  const me = q.data ?? null;
+  const [me, setMe] = useState<Me | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    setMe(await api<Me>('/auth/me').catch(() => null));
+    setLoading(false);
+  }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
+
   const value: AuthValue = {
     me,
-    loading: q.isLoading,
+    loading,
     can: perm => !!me && (me.user.isAdmin || me.permissions.includes(perm)),
-    refresh: async () => { await qc.invalidateQueries({ queryKey: ['me'] }); },
+    refresh,
     logout: async () => {
       await api('/auth/logout', { method: 'POST', body: {} }).catch(() => undefined);
       qc.clear();

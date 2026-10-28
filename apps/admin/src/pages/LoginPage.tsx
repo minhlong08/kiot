@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { Logo } from '../components/Logo';
 import { api, ApiError } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { t } from '../lib/i18n';
 
 export function LoginPage() {
@@ -10,7 +10,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const qc = useQueryClient();
+  const { refresh } = useAuth();
   const navigate = useNavigate();
 
   async function submit(e: FormEvent) {
@@ -19,7 +19,7 @@ export function LoginPage() {
     setError('');
     try {
       const res = await api<{ user: { mustChangePassword: boolean } }>('/auth/login', { body: { login, password } });
-      await qc.invalidateQueries({ queryKey: ['me'] });
+      await refresh();
       navigate({ to: res.user.mustChangePassword ? '/change-password' : '/dashboard' });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
