@@ -10,6 +10,8 @@ import { makePurchaseDocsPage } from './purchasing/PurchaseDocsPage';
 import { PurchaseReturnEditor } from './purchasing/PurchaseReturnEditor';
 import { IncomingInvoicesPage } from './purchasing/IncomingInvoicesPage';
 import { ServicePurchasesPage } from './purchasing/ServicePurchasesPage';
+import { CustomersPage } from './customers/CustomersPage';
+import { CustomerGroupsPage } from './customers/CustomerGroupsPage';
 import { makeStockDocListPage } from './stock/StockDocListPage';
 import { makeStockDocEditor } from './stock/StockDocEditor';
 import { STOCK_DOCS, type StockDocKind } from './stock/configs';
@@ -40,5 +42,7 @@ export const PAGES: Record<string, FC> = {
   '/purchase-returns/$id': PurchaseReturnEditor,
   '/incoming-invoices': IncomingInvoicesPage,
   '/service-purchases': ServicePurchasesPage,
+  '/customers': CustomersPage,
+  '/customer-groups': CustomerGroupsPage,
   ...stockPages,
 };

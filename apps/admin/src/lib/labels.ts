@@ -22,4 +22,5 @@ Object.assign(ENTITY_LABELS, {
   StockTake: 'Kiểm kho', StockIssue: 'Xuất kho', Transfer: 'Chuyển hàng',
   Supplier: 'Nhà cung cấp', SupplierGroup: 'Nhóm NCC', PurchaseOrder: 'Đặt hàng nhập', PurchaseReceipt: 'Nhập hàng', PurchaseReturn: 'Trả hàng nhập',
   IncomingInvoice: 'Hóa đơn đầu vào', ServicePurchase: 'Mua dịch vụ', CashVoucher: 'Sổ quỹ',
+  Customer: 'Khách hàng', CustomerGroup: 'Nhóm khách hàng', Promotion: 'Khuyến mại', VoucherCampaign: 'Voucher', MessageLog: 'Tin nhắn',
 });
