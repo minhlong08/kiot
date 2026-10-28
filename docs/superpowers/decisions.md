@@ -88,3 +88,25 @@ Rulings made during the build and deferred review findings, per milestone.
 - Final: minor (deferred): activePromotions parses ended promotions (filter endAt in query)
 - Final: minor (deferred): message logs visible to customers.view holders
 - Final: minor (deferred): checkVoucher says 'Đơn hàng tối thiểu' for a zero order total
+
+## Milestone 5 — POS, invoices, returns, orders
+
+- Task 1: Ruling: promotions see each line at its unit price after the manual line discount; gift lines are excluded and free — cost: none
+- Task 1: Ruling: VietQR built locally (EMVCo/NAPAS) — no network call — cost: none
+- Task 3: Ruling: customer group discountPercent raises the manual-discount ceiling for that customer (max(role limit, group %)) rather than auto-discounting — cost: cashier must type the group discount
+- Task 3: Ruling: delivery sales put the unpaid part on the delivery as COD (collected in M7), not on customer debt — cost: none
+- Task 3: Ruling: client gift lines are ignored; the server adds promotion gifts itself — cost: none
+- Task 3: Ruling: double-complete test passes on SQLite even without transition() (writes serialised); transition() is the guard for Postgres (M10) — cost: none
+- Task 5: Ruling: exchange credit counts like cash for change; any excess is paid out with a TTTH cash-out voucher on the new invoice — cost: none
+- Task 5: Ruling: an exchange return writes no customer ledger itself; the credit flows through the new invoice's 'exchange' payment — cost: none
+- Task 6: Ruling: deposits require a customer (they become customer credit in the partner ledger) — cost: walk-in deposits must be recorded with a customer
+- Task 6: Ruling: order↔invoice coupling via hooks set by services/customerOrders.ts (imported by app.ts) to avoid a circular import — cost: none
+- Task 7: Ruling: catalog delta = products edited OR with stock movements since 'since' (+ combos of moved components); unsellable rows are sent with sellable=false so the till can drop them — cost: none
+- Task 8: Ruling: offline queue stops at the first network failure (keeps order) and marks server rejections as errors for the cashier — cost: none
+- Task 11: Ruling: exchange = new tab carrying the return credit; posted as one /api/returns call with exchange — cost: none
+- Task 12: Ruling: admin 'Sao chép'/'Lập hóa đơn' hand the request to the POS through localStorage key pd.pos.load (read once) — cost: works only in the same browser
+- Task 13: Ruling: seeded returns/orders are dated at install time (createReturn has no backdating); seeded transfer payments only on promotion-free sales so amounts are exact — cost: none
+- Task 13: Ruling: E2E checks the sale's TTHD voucher via the invoice detail; the full cash-book screen check moves to M6 (no cash book UI yet) — cost: none
+- Final: minor (deferred): sellerId and channel not validated; otherIncome has no permission
+- Final: minor (deferred): shift report / customer history not branch-scoped
+- Final: minor (deferred): unit lines ignore price-book prices (books are per base product)
