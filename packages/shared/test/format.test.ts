@@ -5,7 +5,7 @@ import {
 } from '../src';
 
 describe('money', () => {
-  test('formats with comma thousands', () => expect(formatVnd(69128000)).toBe('69,128,000'));
+  test('formats with comma thousands', () => expect(formatVnd(12345000)).toBe('12,345,000'));
   test('formats negatives', () => expect(formatVnd(-50000)).toBe('-50,000'));
   test('parses formatted text', () => expect(parseVnd('1,234,000')).toBe(1234000));
   test('parses empty as 0', () => expect(parseVnd('')).toBe(0));
