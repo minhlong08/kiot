@@ -31,7 +31,7 @@ export type ModuleKey = (typeof MODULES)[number]['key'];
 export const ACTIONS = ['view', 'create', 'edit', 'delete', 'export'] as const;
 export type Action = (typeof ACTIONS)[number];
 export const permKey = (m: string, a: string) => `${m}.${a}`;
-export const SPECIAL_PERMS = ['cost.view', 'pos.editPrice', 'pos.access'] as const;
+export const SPECIAL_PERMS = ['cost.view', 'pos.editPrice', 'pos.access', 'customers.adjust', 'customers.message'] as const;
 export const ALL_PERMS: string[] = [
   ...MODULES.flatMap(m => ACTIONS.map(a => permKey(m.key, a))),
   ...SPECIAL_PERMS,

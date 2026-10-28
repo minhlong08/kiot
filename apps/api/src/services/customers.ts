@@ -17,7 +17,7 @@ export async function saveCustomer(tx: Tx, ctx: AuditCtx, input: CustomerInput, 
   const before = id ? await tx.customer.findUnique({ where: { id } }) : null;
   if (id && !before) throw notFound('Khách hàng');
   if (input.phone && !opts.force) {
-    const dup = await tx.customer.findFirst({ where: { phone: input.phone, ...(id ? { id: { not: id } } : {}) } });
+    const dup = await tx.customer.findFirst({ where: { OR: [{ phone: input.phone }, { phone2: input.phone }], ...(id ? { id: { not: id } } : {}) } });
     if (dup) throw new AppError(409, 'DUPLICATE_PHONE', `Số điện thoại đã dùng cho khách ${dup.code} - ${dup.name}`, { code: dup.code, name: dup.name });
   }
   const prefix = (await getSettings(tx)).orders.codePrefixes.customer;

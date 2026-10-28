@@ -27,6 +27,7 @@ export function CustomersPage() {
   const [dialog, setDialog] = useState<Dialog>(null);
   const [amount, setAmount] = useState(0);
   const [fundId, setFundId] = useState<number | null>(null);
+  const [note, setNote] = useState('');
   const [deleting, setDeleting] = useState<CustomerRow | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const created = resolveDateRange(state.created as string);
@@ -43,8 +44,8 @@ export function CustomersPage() {
     const d = dialog!;
     setDialog(null);
     if (d.kind === 'pay') run.mutate(() => api(`/customers/${d.c.id}/payments`, { body: { amount, fundId } }));
-    if (d.kind === 'debt') run.mutate(() => api(`/customers/${d.c.id}/adjust-debt`, { body: { newDebt: amount, note: 'Điều chỉnh' } }));
-    if (d.kind === 'points') run.mutate(() => api(`/customers/${d.c.id}/adjust-points`, { body: { newPoints: amount, note: 'Điều chỉnh' } }));
+    if (d.kind === 'debt') run.mutate(() => api(`/customers/${d.c.id}/adjust-debt`, { body: { newDebt: amount, note } }));
+    if (d.kind === 'points') run.mutate(() => api(`/customers/${d.c.id}/adjust-points`, { body: { newPoints: amount, note } }));
   }
 
   const columns: Column<CustomerRow>[] = [
@@ -94,8 +95,8 @@ export function CustomersPage() {
             <CustomerDetail c={r} historyTab={customerHistoryTab(r.id)} actions={{
               onEdit: () => setForm({ ...r }),
               onPay: () => { setAmount(Math.max(0, r.debt)); setFundId(null); setDialog({ kind: 'pay', c: r }); },
-              onAdjustDebt: () => { setAmount(r.debt); setDialog({ kind: 'debt', c: r }); },
-              onAdjustPoints: () => { setAmount(r.points); setDialog({ kind: 'points', c: r }); },
+              onAdjustDebt: () => { setAmount(r.debt); setNote(''); setDialog({ kind: 'debt', c: r }); },
+              onAdjustPoints: () => { setAmount(r.points); setNote(''); setDialog({ kind: 'points', c: r }); },
               onToggle: () => run.mutate(() => api(`/customers/${r.id}`, { method: 'PUT', body: { ...r, birthday: r.birthday ? r.birthday.slice(0, 10) : null, isActive: !r.isActive, force: true } })),
               onDelete: () => setDeleting(r),
             }} />
@@ -103,10 +104,11 @@ export function CustomersPage() {
       </ListPage>
       <CustomerForm value={form} onClose={() => setForm(null)} />
       <Modal open={!!dialog} size="sm" title={dialog?.kind === 'pay' ? `Thu tiền: ${dialog.c.name}` : dialog?.kind === 'debt' ? 'Điều chỉnh công nợ' : 'Điều chỉnh điểm'} onClose={() => setDialog(null)}
-        footer={<button type="button" className="btn-primary" onClick={submitDialog}>{dialog?.kind === 'pay' ? 'Tạo phiếu thu' : 'Lưu'}</button>}>
+        footer={<button type="button" className="btn-primary" disabled={dialog?.kind !== 'pay' && !note.trim()} onClick={submitDialog}>{dialog?.kind === 'pay' ? 'Tạo phiếu thu' : 'Lưu'}</button>}>
         {dialog?.kind === 'pay' && <div className="space-y-3"><div className="text-sm">Nợ hiện tại: <b>{formatVnd(dialog.c.debt)}</b></div><Field label="Số tiền thu"><MoneyInput value={amount} onChange={setAmount} aria-label="Số tiền thu" /></Field><Field label="Quỹ tiền"><FundSelect value={fundId} onChange={setFundId} /></Field></div>}
         {dialog?.kind === 'debt' && <Field label="Nợ sau điều chỉnh"><MoneyInput value={amount} onChange={setAmount} /></Field>}
         {dialog?.kind === 'points' && <Field label="Điểm sau điều chỉnh"><NumberInput value={amount} onChange={v => setAmount(Math.max(0, Math.round(v)))} /></Field>}
+        {dialog && dialog.kind !== 'pay' && <div className="mt-3"><Field label="Lý do điều chỉnh"><input className="input" value={note} onChange={e => setNote(e.target.value)} /></Field></div>}
       </Modal>
       <ConfirmModal open={!!deleting} title="Xóa khách hàng" danger confirmLabel="Xóa" onClose={() => setDeleting(null)}
         message="Khách hàng đã có giao dịch sẽ chuyển sang ngừng hoạt động thay vì bị xóa."

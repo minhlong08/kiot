@@ -159,7 +159,7 @@ export async function supplierRoutes(app: FastifyInstance) {
   });
 
   app.post('/api/suppliers/:id/adjust-debt', { preHandler: requirePermission('suppliers.edit') }, async req => {
-    const { newDebt, note } = z.object({ newDebt: signedMoneySchema, note: z.string().max(500).default('') }).parse(req.body);
+    const { newDebt, note } = z.object({ newDebt: signedMoneySchema, note: z.string().trim().min(1, 'Nhập lý do điều chỉnh').max(500) }).parse(req.body);
     await db.$transaction(tx => adjustSupplierDebt(tx, req.auditCtx, idOf(req), newDebt, note));
     return { ok: true };
   });

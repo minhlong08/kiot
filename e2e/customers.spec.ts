@@ -21,7 +21,8 @@ test('duplicate phone confirm, collect a debt, create a running promotion', asyn
   await page.getByRole('cell', { name: NAME }).click();
   await page.getByRole('tab', { name: 'Nợ cần thu từ khách' }).click();
   await page.getByRole('button', { name: 'Điều chỉnh', exact: true }).click();
-  await page.getByRole('dialog').getByRole('textbox').fill('250,000');
+  await page.getByRole('dialog').getByRole('textbox').first().fill('250,000');
+  await page.getByLabel('Lý do điều chỉnh').fill('Nợ cũ chuyển sang');
   await page.getByRole('button', { name: 'Lưu', exact: true }).click();
   const row = page.getByRole('row', { name: new RegExp(NAME) });
   await expect(row.getByRole('cell').nth(DEBT)).toHaveText('250,000');

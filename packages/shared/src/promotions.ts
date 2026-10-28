@@ -40,34 +40,53 @@ export function promotionActive(p: PromoBase, ctx: PromoContext): boolean {
 
 const pct = (amount: number, percent: number) => Math.round((amount * percent) / 100);
 
-/** Per-line discounts from product-level promotions, capped at each line's value. */
+/** Candidate discounts per line from one product-level promotion (before stacking rules). */
+function lineCandidates(lines: CartLine[], p: Promotion): Map<string, number> {
+  const out = new Map<string, number>();
+  const add = (key: string, amount: number) => { if (amount > 0) out.set(key, (out.get(key) ?? 0) + amount); };
+  if (p.type === 'productDiscount') {
+    for (const l of lines) {
+      const matches = p.productIds.includes(l.productId) || (l.groupId !== null && p.groupIds.includes(l.groupId));
+      if (!matches || l.qty < p.minQty) continue;
+      const perUnit = p.unit === '%' ? pct(l.price, p.value) : Math.min(p.value, l.price);
+      add(l.key, perUnit * l.qty);
+    }
+  } else if (p.type === 'buyXGetY') {
+    const units = (ids: number[]) => lines.filter(l => ids.includes(l.productId)).flatMap(l => Array.from({ length: l.qty }, () => l));
+    const buyUnits = units(p.buyProductIds);
+    const getUnits = units(p.getProductIds).sort((a, b) => a.price - b.price);
+    const overlap = p.buyProductIds.some(id => p.getProductIds.includes(id));
+    const discounted = overlap
+      ? Math.floor(buyUnits.length / (p.buyQty + p.getQty)) * p.getQty
+      : Math.min(Math.floor(buyUnits.length / p.buyQty) * p.getQty, getUnits.length);
+    for (const u of getUnits.slice(0, discounted)) add(u.key, pct(u.price, p.getDiscountPercent));
+  }
+  return out;
+}
+
+/**
+ * Line-level stacking: each line gets the single best non-combinable promotion plus every combinable one,
+ * capped at the line value; `applied` records exactly what each promotion contributed after the cap.
+ */
 function lineLevel(lines: CartLine[], promos: Promotion[], out: PromoResult) {
-  const add = (key: string, amount: number, p: Promotion) => {
-    if (amount <= 0) return;
-    out.lineDiscounts[key] = (out.lineDiscounts[key] ?? 0) + amount;
-    const a = out.applied.find(x => x.promotionId === p.id);
-    if (a) a.amount += amount; else out.applied.push({ promotionId: p.id, name: p.name, amount });
-  };
-  for (const p of promos) {
-    if (p.type === 'productDiscount') {
-      for (const l of lines) {
-        const matches = p.productIds.includes(l.productId) || (l.groupId !== null && p.groupIds.includes(l.groupId));
-        if (!matches || l.qty < p.minQty) continue;
-        const perUnit = p.unit === '%' ? pct(l.price, p.value) : Math.min(p.value, l.price);
-        add(l.key, perUnit * l.qty, p);
-      }
-    } else if (p.type === 'buyXGetY') {
-      const units = (ids: number[]) => lines.filter(l => ids.includes(l.productId)).flatMap(l => Array.from({ length: l.qty }, () => l));
-      const buyUnits = units(p.buyProductIds);
-      const getUnits = units(p.getProductIds).sort((a, b) => a.price - b.price);
-      const overlap = p.buyProductIds.some(id => p.getProductIds.includes(id));
-      const discounted = overlap
-        ? Math.floor(buyUnits.length / (p.buyQty + p.getQty)) * p.getQty
-        : Math.min(Math.floor(buyUnits.length / p.buyQty) * p.getQty, getUnits.length);
-      for (const u of getUnits.slice(0, discounted)) add(u.key, pct(u.price, p.getDiscountPercent), p);
+  const candidates = promos.filter(p => p.type === 'productDiscount' || p.type === 'buyXGetY').map(p => ({ p, byLine: lineCandidates(lines, p) }));
+  const contributed = new Map<number, number>();
+  for (const l of lines) {
+    const here = candidates.map(c => ({ p: c.p, amount: c.byLine.get(l.key) ?? 0 })).filter(c => c.amount > 0);
+    const best = here.filter(c => !c.p.combinable).sort((a, b) => b.amount - a.amount)[0];
+    let left = l.price * l.qty;
+    for (const c of [...(best ? [best] : []), ...here.filter(c => c.p.combinable)]) {
+      const amount = Math.min(c.amount, left);
+      if (amount <= 0) continue;
+      left -= amount;
+      out.lineDiscounts[l.key] = (out.lineDiscounts[l.key] ?? 0) + amount;
+      contributed.set(c.p.id, (contributed.get(c.p.id) ?? 0) + amount);
     }
   }
-  for (const l of lines) if (out.lineDiscounts[l.key] > l.price * l.qty) out.lineDiscounts[l.key] = l.price * l.qty;
+  for (const c of candidates) {
+    const amount = contributed.get(c.p.id);
+    if (amount) out.applied.push({ promotionId: c.p.id, name: c.p.name, amount });
+  }
 }
 
 function invoiceAmount(p: InvoiceDiscount | GiftItem, subtotal: number): number {
@@ -90,13 +109,21 @@ export function evaluatePromotions(lines: CartLine[], promos: Promotion[], ctx: 
   const invoicePromos = active.filter((p): p is InvoiceDiscount | GiftItem => p.type === 'invoiceDiscount' || p.type === 'giftItem')
     .map(p => ({ p, amount: invoiceAmount(p, subtotal) })).filter(x => x.amount >= 0);
   const best = invoicePromos.filter(x => !x.p.combinable).sort((a, b) => b.amount - a.amount)[0];
-  const chosen = [...invoicePromos.filter(x => x.p.combinable), ...(best ? [best] : [])];
+  const chosen = [...(best ? [best] : []), ...invoicePromos.filter(x => x.p.combinable)];
+  let left = subtotal;
   for (const { p, amount } of chosen) {
-    if (p.type === 'giftItem') out.gifts.push({ productId: p.giftProductId, qty: p.giftQty, promotionId: p.id });
-    else out.invoiceDiscount += amount;
-    out.applied.push({ promotionId: p.id, name: p.name, amount });
+    if (p.type === 'giftItem') {
+      out.gifts.push({ productId: p.giftProductId, qty: p.giftQty, promotionId: p.id });
+      out.applied.push({ promotionId: p.id, name: p.name, amount });
+      continue;
+    }
+    // Invoice discounts never exceed what is left to pay; zero-value promotions are not recorded.
+    const take = Math.min(amount, left);
+    if (take <= 0) continue;
+    left -= take;
+    out.invoiceDiscount += take;
+    out.applied.push({ promotionId: p.id, name: p.name, amount: take });
   }
-  out.invoiceDiscount = Math.min(out.invoiceDiscount, subtotal);
   return out;
 }
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { customerInputSchema, formatDate, moneySchema, normalizeVi, signedMoneySchema } from '@pd/shared';
+import { customerInputSchema, formatDate, moneySchema, normalizePhone, normalizeVi, signedMoneySchema } from '@pd/shared';
 import type { Prisma } from '../db';
 import { requirePermission, user } from '../plugins/auth';
 import { dateParam, listParam, orderByOf, parseList } from '../lib/list';
@@ -58,10 +58,11 @@ export async function customerRoutes(app: FastifyInstance) {
     return { items: await withGroups(rows), total, totals: { debt: sums._sum.debt ?? 0, totalSpent: sums._sum.totalSpent ?? 0, points: sums._sum.points ?? 0 } };
   });
 
-  app.get('/api/customers/lookup', async req => {
+  app.get('/api/customers/lookup', { preHandler: requirePermission('customers.view', 'pos.access', 'invoices.create', 'customerOrders.create') }, async req => {
     const q = String((req.query as { q?: string }).q ?? '').trim();
     if (!q) return [];
-    const rows = await db.customer.findMany({ where: { isActive: true, OR: [{ phone: q }, { code: q.toUpperCase() }, { searchText: { contains: normalizeVi(q) } }] }, take: 10, orderBy: { lastPurchaseAt: 'desc' } });
+    const phone = normalizePhone(q);
+    const rows = await db.customer.findMany({ where: { isActive: true, OR: [...(phone.length >= 3 ? [{ phone: { startsWith: phone } }, { phone2: { startsWith: phone } }] : []), { code: q.toUpperCase() }, { searchText: { contains: normalizeVi(q) } }] }, take: 10, orderBy: { lastPurchaseAt: 'desc' } });
     const groups = await db.customerGroup.findMany();
     return rows.map(c => {
       const g = groups.find(x => x.id === c.groupId);
@@ -69,7 +70,7 @@ export async function customerRoutes(app: FastifyInstance) {
     });
   });
 
-  app.get('/api/customers/export', { preHandler: requirePermission('customers.export', 'customers.view') }, async (req, reply) => {
+  app.get('/api/customers/export', { preHandler: requirePermission('customers.export') }, async (req, reply) => {
     const rows = await withGroups(await db.customer.findMany({ where: customerWhere(req.query as Record<string, unknown>), orderBy: { createdAt: 'desc' } }));
     return sendXlsx(reply, 'khach-hang.xlsx', [
       ...CUSTOMER_IMPORT_COLUMNS.filter(c => c.key !== 'group'), { header: 'Nhóm khách hàng', key: 'groupName' },
@@ -136,13 +137,14 @@ export async function customerRoutes(app: FastifyInstance) {
   const pay = z.object({ amount: moneySchema.refine(v => v > 0, 'Số tiền phải lớn hơn 0'), fundId: z.number().int().nullable().optional(), note: z.string().max(500).default('') });
   app.post('/api/customers/:id/payments', { preHandler: requirePermission('customers.edit', 'cashbook.create') }, async req =>
     db.$transaction(tx => receiveCustomerPayment(tx, cashCtxOf(req), idOf(req), pay.parse(req.body))));
-  app.post('/api/customers/:id/adjust-debt', { preHandler: requirePermission('customers.edit') }, async req => {
-    const { newDebt, note } = z.object({ newDebt: signedMoneySchema, note: z.string().max(500).default('') }).parse(req.body);
+  const reason = z.string().trim().min(1, 'Nhập lý do điều chỉnh').max(500);
+  app.post('/api/customers/:id/adjust-debt', { preHandler: requirePermission('customers.adjust') }, async req => {
+    const { newDebt, note } = z.object({ newDebt: signedMoneySchema, note: reason }).parse(req.body);
     await db.$transaction(tx => adjustCustomerDebt(tx, req.auditCtx, idOf(req), newDebt, note));
     return { ok: true };
   });
-  app.post('/api/customers/:id/adjust-points', { preHandler: requirePermission('customers.edit') }, async req => {
-    const { newPoints, note } = z.object({ newPoints: z.number().int().min(0).max(100_000_000), note: z.string().max(500).default('') }).parse(req.body);
+  app.post('/api/customers/:id/adjust-points', { preHandler: requirePermission('customers.adjust') }, async req => {
+    const { newPoints, note } = z.object({ newPoints: z.number().int().min(0).max(100_000_000), note: reason }).parse(req.body);
     await db.$transaction(tx => adjustCustomerPoints(tx, req.auditCtx, idOf(req), newPoints, note));
     return { ok: true };
   });
@@ -182,8 +184,8 @@ export async function customerRoutes(app: FastifyInstance) {
     return db.$transaction(async tx => {
       const g = await tx.customerGroup.findUnique({ where: { id } });
       if (!g) throw notFound('Nhóm khách hàng');
-      const books = await tx.priceBook.findMany({ select: { customerGroupIds: true } });
-      if ((await tx.customer.count({ where: { groupId: id } })) || books.some(b => (JSON.parse(b.customerGroupIds) as number[]).includes(id))) throw conflict('IN_USE', 'Nhóm đang có khách hàng hoặc được dùng trong bảng giá');
+      const scoped = [...(await tx.priceBook.findMany({ select: { customerGroupIds: true } })), ...(await tx.promotion.findMany({ select: { customerGroupIds: true } }))];
+      if ((await tx.customer.count({ where: { groupId: id } })) || scoped.some(b => (JSON.parse(b.customerGroupIds) as number[]).includes(id))) throw conflict('IN_USE', 'Nhóm đang có khách hàng hoặc được dùng trong bảng giá/khuyến mại');
       await tx.customerGroup.delete({ where: { id } });
       await audit(tx, req.auditCtx, { action: 'delete', entity: 'CustomerGroup', entityId: id, entityCode: g.name, summary: `Xóa nhóm khách hàng ${g.name}`, before: g });
       return { ok: true };

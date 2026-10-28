@@ -8,3 +8,9 @@ export function normalizeVi(s: string): string {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+/** Keeps digits and a leading + so '0912 345.678' and '0912345678' compare equal. */
+export function normalizePhone(s: string): string {
+  const t = String(s ?? '').trim();
+  return (t.startsWith('+') ? '+' : '') + t.replace(/\D/g, '');
+}

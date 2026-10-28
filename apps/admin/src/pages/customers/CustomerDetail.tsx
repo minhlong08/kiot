@@ -72,7 +72,7 @@ export function CustomerDetail({ c, actions, historyTab }: { c: CustomerRow; act
             <div className="flex items-center justify-between px-3 py-2">
               <span className="text-sm">Nợ hiện tại: <b className={c.debt > 0 ? 'text-rose-700' : ''}>{formatVnd(c.debt)}</b></span>
               <span className="flex gap-2">
-                {can('customers.edit') && <button type="button" className="btn" onClick={actions.onAdjustDebt}>Điều chỉnh</button>}
+                {can('customers.adjust') && <button type="button" className="btn" onClick={actions.onAdjustDebt}>Điều chỉnh</button>}
                 {can('customers.edit') && <button type="button" className="btn-primary" onClick={actions.onPay}>Thu tiền</button>}
               </span>
             </div>
@@ -85,7 +85,7 @@ export function CustomerDetail({ c, actions, historyTab }: { c: CustomerRow; act
           <div>
             <div className="flex items-center justify-between px-3 py-2">
               <span className="text-sm">Điểm hiện tại: <b>{formatVnd(c.points)}</b></span>
-              {can('customers.edit') && <button type="button" className="btn" onClick={actions.onAdjustPoints}>Điều chỉnh điểm</button>}
+              {can('customers.adjust') && <button type="button" className="btn" onClick={actions.onAdjustPoints}>Điều chỉnh điểm</button>}
             </div>
             <Rows path={`/customers/${c.id}/points`} value="points" />
           </div>

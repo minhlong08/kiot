@@ -23,6 +23,7 @@ export function SuppliersPage() {
   const [paying, setPaying] = useState<SupplierRow | null>(null);
   const [adjusting, setAdjusting] = useState<SupplierRow | null>(null);
   const [newDebt, setNewDebt] = useState(0);
+  const [adjustNote, setAdjustNote] = useState('');
   const [deleting, setDeleting] = useState<SupplierRow | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [groupForm, setGroupForm] = useState<string | null>(null);
@@ -90,8 +91,9 @@ export function SuppliersPage() {
       <SupplierForm value={form} onClose={() => setForm(null)} />
       <PaymentDialog supplier={paying} onClose={() => setPaying(null)} />
       <Modal open={!!adjusting} size="sm" title="Điều chỉnh công nợ" onClose={() => setAdjusting(null)}
-        footer={<button type="button" className="btn-primary" onClick={() => { const s = adjusting!; setAdjusting(null); mutate.mutate(() => api(`/suppliers/${s.id}/adjust-debt`, { body: { newDebt, note: 'Điều chỉnh' } })); }}>Lưu</button>}>
+        footer={<button type="button" className="btn-primary" onClick={() => { const s = adjusting!; setAdjusting(null); mutate.mutate(() => api(`/suppliers/${s.id}/adjust-debt`, { body: { newDebt, note: adjustNote } })); }} disabled={!adjustNote.trim()}>Lưu</button>}>
         <Field label="Nợ cần trả sau điều chỉnh"><MoneyInput value={newDebt} onChange={setNewDebt} /></Field>
+        <div className="mt-3"><Field label="Lý do điều chỉnh"><input className="input" value={adjustNote} onChange={e => setAdjustNote(e.target.value)} /></Field></div>
       </Modal>
       <Modal open={groupForm !== null} size="sm" title="Thêm nhóm nhà cung cấp" onClose={() => setGroupForm(null)}
         footer={<button type="button" className="btn-primary" disabled={!groupForm?.trim()} onClick={() => { const name = groupForm!; setGroupForm(null); mutate.mutate(async () => { await api('/supplier-groups', { body: { name } }); await qc.invalidateQueries({ queryKey: ['supplier-groups'] }); }); }}>Lưu</button>}>

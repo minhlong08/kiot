@@ -69,10 +69,12 @@ export async function redeemVoucher(tx: Tx, code: string, invoiceId: number, ord
   return check.discount;
 }
 
-export async function releaseVoucher(tx: Tx, code: string, invoiceId: number) {
+export async function releaseVoucher(tx: Tx, rawCode: string, invoiceId: number) {
+  const code = rawCode.trim().toUpperCase();
   const v = await tx.voucher.findUnique({ where: { code } });
   if (!v) throw notFound('Voucher');
   const c = await tx.voucherCampaign.findUniqueOrThrow({ where: { id: v.campaignId } });
-  if (c.multiUse) await tx.voucher.update({ where: { code }, data: { usageCount: { decrement: 1 } } });
-  else if (v.usedInvoiceId === invoiceId) await tx.voucher.update({ where: { code }, data: { status: 'unused', usedAt: null, usedInvoiceId: null, usageCount: 0 } });
+  // Conditional updates: retried cancellations can never push usage below zero or free someone else's use.
+  if (c.multiUse) await tx.voucher.updateMany({ where: { code, usageCount: { gt: 0 } }, data: { usageCount: { decrement: 1 } } });
+  else await tx.voucher.updateMany({ where: { code, usedInvoiceId: invoiceId }, data: { status: 'unused', usedAt: null, usedInvoiceId: null, usageCount: 0 } });
 }

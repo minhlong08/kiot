@@ -65,3 +65,27 @@ test('voucher discount with minimum order and cap', () => {
   expect(voucherDiscount({ value: 10, unit: '%', maxDiscount: 80_000, minOrder: 0 }, 1_000_000)).toBe(80_000);
   expect(voucherDiscount({ value: 100_000, unit: 'VND', maxDiscount: null, minOrder: 0 }, 60_000)).toBe(60_000);
 });
+
+test('I-1: non-combinable line promotions do not stack — the best one wins and the item is never free twice', () => {
+  const half: Promotion = { ...base, id: 20, code: 'P50', name: '-50%', type: 'productDiscount', productIds: [1], groupIds: [], minQty: 1, value: 50, unit: '%' };
+  const b1g1: Promotion = { ...base, id: 21, code: 'B1G1', name: 'Mua 1 tặng 1', type: 'buyXGetY', buyProductIds: [1], buyQty: 1, getProductIds: [1], getQty: 1, getDiscountPercent: 100 };
+  const r = evaluatePromotions([line('a', 1, 2, 100_000)], [half, b1g1], ctx);
+  expect(r.lineDiscounts.a).toBe(100_000);
+  expect(r.applied).toEqual([{ promotionId: 20, name: '-50%', amount: 100_000 }]);
+});
+
+test('I-1: combinable line promotions add on top of the best one, capped at the line value', () => {
+  const half: Promotion = { ...base, id: 20, code: 'P50', name: '-50%', type: 'productDiscount', productIds: [1], groupIds: [], minQty: 1, value: 50, unit: '%' };
+  const extra: Promotion = { ...base, combinable: true, id: 22, code: 'X', name: '-60k', type: 'productDiscount', productIds: [1], groupIds: [], minQty: 1, value: 60_000, unit: 'VND' };
+  const r = evaluatePromotions([line('a', 1, 1, 100_000)], [half, extra], ctx);
+  expect(r.lineDiscounts.a).toBe(100_000);
+  expect(r.applied.reduce((s, a) => s + a.amount, 0)).toBe(100_000);
+});
+
+test('I-2: invoice promotions worth nothing are not listed and applied amounts match the discount', () => {
+  const p: Promotion = { ...base, id: 2, code: 'KM2', name: '-100%', type: 'productDiscount', productIds: [1], groupIds: [], minQty: 1, value: 100, unit: '%' };
+  const flat: Promotion = { ...base, combinable: true, id: 6, code: 'KM6', name: 'Giảm 100k', type: 'invoiceDiscount', tiers: [{ minTotal: 0, value: 100_000, unit: 'VND' }] };
+  const r = evaluatePromotions([line('a', 1, 1, 50_000)], [p, flat], ctx);
+  expect(r.invoiceDiscount).toBe(0);
+  expect(r.applied.map(a => a.promotionId)).toEqual([2]);
+});

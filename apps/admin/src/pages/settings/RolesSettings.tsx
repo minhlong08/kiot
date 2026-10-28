@@ -9,7 +9,7 @@ import { toast, toastError } from '../../components/toast';
 
 type Role = { id: number; name: string; isAdmin: boolean; maxDiscountPercent: number; permissions: string[]; userCount: number };
 const ACTION_LABELS: Record<string, string> = { view: 'Xem', create: 'Thêm', edit: 'Sửa', delete: 'Xóa', export: 'Xuất file' };
-const SPECIAL_LABELS: Record<string, string> = { 'cost.view': 'Xem giá vốn', 'pos.editPrice': 'Sửa giá bán khi bán hàng', 'pos.access': 'Truy cập màn hình bán hàng' };
+const SPECIAL_LABELS: Record<string, string> = { 'cost.view': 'Xem giá vốn', 'pos.editPrice': 'Sửa giá bán khi bán hàng', 'pos.access': 'Truy cập màn hình bán hàng', 'customers.adjust': 'Điều chỉnh công nợ/điểm khách hàng', 'customers.message': 'Gửi tin nhắn hàng loạt' };
 
 export function RolesSettings() {
   const qc = useQueryClient();

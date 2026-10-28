@@ -24,6 +24,8 @@ export function MessagingPage() {
   const logs = useQuery({ queryKey: ['messages', page], queryFn: () => api<{ items: Log[]; total: number }>('/messages', { query: page }) });
   const [tpl, setTpl] = useState<Partial<Template> | null>(null);
   const [send, setSend] = useState<{ templateId: number; channel: Template['channel']; groupIds: number[]; search: string } | null>(null);
+  const [confirm, setConfirm] = useState<{ recipients: number; skipped: number } | null>(null);
+  const sendBody = () => ({ templateId: send!.templateId, channel: send!.channel, filter: { groupIds: send!.groupIds.join(','), search: send!.search, status: 'active' } });
   const run = useMutation({
     mutationFn: (f: () => Promise<unknown>) => f(),
     onSuccess: r => { qc.invalidateQueries({ queryKey: ['message-templates'] }); qc.invalidateQueries({ queryKey: ['messages'] }); const s = r as { sent?: number; skipped?: number }; toast(s?.sent !== undefined ? `Đã gửi ${s.sent} tin, bỏ qua ${s.skipped}` : 'Đã lưu'); },
@@ -47,7 +49,7 @@ export function MessagingPage() {
               <p className="my-2 text-slate-600">{t.body}</p>
               <div className="flex justify-end gap-2">
                 {can('customers.edit') && <button type="button" className="btn" onClick={() => setTpl(t)}>Sửa</button>}
-                {can('customers.edit') && <button type="button" className="btn-primary" onClick={() => setSend({ templateId: t.id, channel: t.channel, groupIds: [], search: '' })}>Gửi tin</button>}
+                {can('customers.message') && <button type="button" className="btn-primary" onClick={() => setSend({ templateId: t.id, channel: t.channel, groupIds: [], search: '' })}>Gửi tin</button>}
               </div>
             </div>
           ))}
@@ -71,7 +73,9 @@ export function MessagingPage() {
         )}
       </Modal>
       <Modal open={!!send} size="sm" title="Gửi tin nhắn" onClose={() => setSend(null)}
-        footer={<button type="button" className="btn-primary" onClick={() => { const s = send!; setSend(null); run.mutate(() => api('/messages/send', { body: { templateId: s.templateId, channel: s.channel, filter: { groupIds: s.groupIds.join(','), search: s.search, status: 'active' } } })); }}>Gửi</button>}>
+        footer={confirm
+          ? <><span className="mr-auto text-sm">Gửi tới <b>{confirm.recipients}</b> khách hàng{confirm.skipped ? `, bỏ qua ${confirm.skipped} khách không có số` : ''}?</span><button type="button" className="btn" onClick={() => setConfirm(null)}>Quay lại</button><button type="button" className="btn-primary" disabled={!confirm.recipients} onClick={() => { const body = sendBody(); setSend(null); setConfirm(null); run.mutate(() => api('/messages/send', { body })); }}>Xác nhận gửi</button></>
+          : <button type="button" className="btn-primary" onClick={() => api<{ recipients: number; skipped: number }>('/messages/send', { body: { ...sendBody(), dryRun: true } }).then(setConfirm, toastError)}>Tiếp tục</button>}>
         {send && (
           <div className="space-y-3 text-sm">
             <p>Gửi tới khách hàng đang hoạt động theo điều kiện:</p>

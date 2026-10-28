@@ -27,16 +27,17 @@ export async function messagingRoutes(app: FastifyInstance) {
 
   const sendInput = z.object({
     templateId: z.number().int().optional(), body: z.string().max(1000).optional(), channel: z.enum(['sms', 'zalo', 'email']).default('sms'),
-    customerIds: z.array(z.number().int()).max(5000).optional(), filter: z.record(z.string(), z.unknown()).optional(),
+    customerIds: z.array(z.number().int()).max(5000).optional(), filter: z.record(z.string(), z.unknown()).optional(), dryRun: z.boolean().default(false),
   });
-  app.post('/api/messages/send', { preHandler: requirePermission('customers.edit') }, async req => {
+  app.post('/api/messages/send', { preHandler: requirePermission('customers.message') }, async req => {
     const b = sendInput.parse(req.body);
     const tpl = b.templateId ? await db.messageTemplate.findUnique({ where: { id: b.templateId } }) : null;
     if (b.templateId && !tpl) throw notFound('Mẫu tin nhắn');
     const body = tpl?.body ?? b.body;
     if (!body) throw badRequest('NO_BODY', 'Nhập nội dung tin nhắn');
     if (!b.customerIds && !b.filter) throw badRequest('NO_RECIPIENTS', 'Chọn khách hàng nhận tin');
-    const customers = await db.customer.findMany({ where: b.customerIds ? { id: { in: b.customerIds } } : customerWhere(b.filter!), take: 5000 });
+    const customers = await db.customer.findMany({ where: { ...(b.customerIds ? { id: { in: b.customerIds } } : customerWhere(b.filter!)), isActive: true }, take: 5000 });
+    if (b.dryRun) return { recipients: customers.filter(c => (b.channel === 'email' ? c.email : c.phone)).length, skipped: customers.filter(c => !(b.channel === 'email' ? c.email : c.phone)).length };
     const storeName = (await getSettings(db)).store.name;
     const adapter = getMessagingAdapter(b.channel);
     let sent = 0, failed = 0, skipped = 0;
