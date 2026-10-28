@@ -137,5 +137,7 @@ export const vi: Record<string, string> = {
   'settings.products': 'Hàng hóa',
   'settings.orders': 'Đơn hàng',
   'settings.customers': 'Khách hàng',
+  'settings.cashbook': 'Sổ quỹ',
+  'settings.pos': 'Bán hàng',
   'settings.auditLog': 'Lịch sử thao tác',
 };
