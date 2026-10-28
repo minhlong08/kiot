@@ -55,15 +55,23 @@ export async function moveStock(tx: Tx, m: MoveInput, opts: { allowNegative?: bo
   }
 
   const row = await ensureRow(tx, product.id, m.branchId, product.cost);
-  const onHand = row.onHand + m.qty;
-  if (m.qty < 0 && onHand < 0 && !allowNegative) {
-    throw new AppError(409, 'INSUFFICIENT_STOCK', `Không đủ tồn kho cho ${product.code} - ${product.name} (còn ${row.onHand})`, { productId: product.id, onHand: row.onHand });
-  }
   const inbound = m.qty > 0 && m.unitCost !== undefined;
-  const cost = inbound ? weightedAverageCost(row.onHand, row.cost, m.qty, m.unitCost!) : row.cost;
+  const key = { productId: product.id, branchId: m.branchId };
+  if (m.qty < 0 && !allowNegative) {
+    // Conditional decrement: correct even when several tills sell the last unit at the same time (Postgres too).
+    const r = await tx.branchStock.updateMany({ where: { ...key, onHand: { gte: -m.qty } }, data: { onHand: { increment: m.qty } } });
+    if (r.count !== 1) {
+      const cur = await getBranchStock(tx, product.id, m.branchId);
+      throw new AppError(409, 'INSUFFICIENT_STOCK', `Không đủ tồn kho cho ${product.code} - ${product.name} (còn ${cur.onHand})`, { productId: product.id, onHand: cur.onHand });
+    }
+  } else {
+    const cost = inbound ? weightedAverageCost(row.onHand, row.cost, m.qty, m.unitCost!) : row.cost;
+    await tx.branchStock.update({ where: { productId_branchId: key }, data: { onHand: { increment: m.qty }, ...(inbound ? { cost } : {}) } });
+  }
+  const after = await tx.branchStock.findUniqueOrThrow({ where: { productId_branchId: key } });
+  const onHand = after.onHand, cost = after.cost;
   const lineCost = inbound ? m.unitCost! : row.cost;
 
-  await tx.branchStock.update({ where: { productId_branchId: { productId: product.id, branchId: m.branchId } }, data: { onHand, cost } });
   if (m.qty !== 0) {
     await tx.stockLedger.create({
       data: {

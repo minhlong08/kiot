@@ -59,8 +59,11 @@ test('receive → sell at POS with discount and points → return → stock card
   const row = page.getByRole('row', { name: /Áo sơ mi E2E/ });
   await expect(row.getByRole('cell').nth(6)).toHaveText('10');
 
-  // Customer: points spent and earned then reversed by the full return; debt unchanged.
+  // Customer: the full return gives back the 100 points used and reverses the points earned; only the
+  // 350,000 actually paid comes back as cash; debt unchanged.
   const after = (await json(await api.get(`/api/customers/lookup?q=${customer.code}`)))[0];
-  expect(after.points).toBe(0);
+  expect(after.points).toBe(100);
   expect(after.debt).toBe(debtBefore);
+  const returns = await json(await api.get('/api/returns'));
+  expect(returns.items[0]).toMatchObject({ refunded: 350_000 });
 });

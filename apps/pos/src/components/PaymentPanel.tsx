@@ -75,7 +75,7 @@ export function PaymentPanel({ boot, cart, customer, exchangeCredit, depositAvai
         <Row label="Mã voucher"><span className="flex gap-1"><input className="input w-28 uppercase" aria-label="Mã voucher" value={voucher} onChange={e => setVoucher(e.target.value)} /><button type="button" className="btn" onClick={applyVoucher}>Áp dụng</button></span></Row>
         {voucherMsg && <p className="text-right text-xs text-slate-600">{voucherMsg}</p>}
         {customer && customer.points > 0 && (
-          <Row label={`Điểm (còn ${formatVnd(customer.points)})`}><MoneyField className="w-28" aria-label="Điểm sử dụng" value={cart.pointsUsed} onChange={v => onChange({ pointsUsed: Math.min(v, customer.points) })} /></Row>
+          <Row label={`Điểm (còn ${formatVnd(customer.points)})`}><MoneyField className="w-28" aria-label="Điểm sử dụng" value={cart.pointsUsed} onChange={v => onChange({ pointsUsed: Math.min(v, customer.points, Math.ceil((r.total + (cart.pointsUsed * boot.settings.customers.pointValueVnd)) / Math.max(1, boot.settings.customers.pointValueVnd))) })} /></Row>
         )}
         <Row label="Thu khác"><MoneyField className="w-36" aria-label="Thu khác" value={cart.otherIncome} onChange={v => onChange({ otherIncome: v })} /></Row>
         {r.roundingAdjust !== 0 && <Row label="Làm tròn">{formatVnd(r.roundingAdjust)}</Row>}

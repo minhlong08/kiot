@@ -110,8 +110,15 @@ export async function invoiceRoutes(app: FastifyInstance) {
 
   app.post('/api/invoices', { preHandler: requirePermission('invoices.create', 'pos.access') }, async req => {
     const input = invoiceInputSchema.parse(req.body);
-    const inv = await db.$transaction(tx => createInvoice(tx, docCtx(req), input, user(req)), { timeout: 30_000 });
-    return detail(req, inv.id);
+    try {
+      const inv = await db.$transaction(tx => createInvoice(tx, docCtx(req), input, user(req)), { timeout: 30_000 });
+      return detail(req, inv.id);
+    } catch (e) {
+      // Two replays of one offline sale racing: the loser returns the winner's invoice.
+      const existing = input.clientUuid && (e as { code?: string }).code === 'P2002' ? await db.invoice.findUnique({ where: { clientUuid: input.clientUuid } }) : null;
+      if (existing) return detail(req, existing.id);
+      throw e;
+    }
   });
 
   app.post('/api/invoices/:id/cancel', { preHandler: requirePermission('invoices.delete') }, async req => {

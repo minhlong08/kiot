@@ -398,6 +398,7 @@ model CashFund {
   type           String
   name           String
   bankName       String   @default("")
+  bankBin        String   @default("")
   accountNumber  String   @default("")
   accountName    String   @default("")
   branchId       Int?
@@ -824,6 +825,7 @@ model SaleReturn {
   refunded          Int      @default(0)
   toDebt            Int      @default(0)
   pointsReversed    Int      @default(0)
+  pointsRefunded    Int      @default(0)
   costTotal         Int      @default(0)
   refundMethod      String   @default("cash")
   fundId            Int?

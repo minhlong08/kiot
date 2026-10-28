@@ -109,7 +109,13 @@ async function applyDelivery(tx: Tx, orderId: number, invoiceId: number, sign: 1
     await adjustCounter(tx, ol.productId, o.branchId, 'reserved', -delta * ol.conversion);
   }
   const status = o.lines.every(l => l.deliveredQty >= l.qty) ? 'completed' : o.lines.some(l => l.deliveredQty > 0) ? 'partial' : 'confirmed';
-  await tx.customerOrder.update({ where: { id: orderId }, data: { status, depositUsed: { increment: sign * deposit } } });
+  if (sign > 0 && deposit) {
+    const ok = await tx.customerOrder.updateMany({ where: { id: orderId, depositUsed: { lte: o.deposit - deposit } }, data: { depositUsed: { increment: deposit } } });
+    if (ok.count !== 1) throw conflict('DEPOSIT_EXCEEDED', 'Số tiền cọc sử dụng vượt quá tiền cọc còn lại');
+  } else if (deposit) {
+    await tx.customerOrder.update({ where: { id: orderId }, data: { depositUsed: { decrement: deposit } } });
+  }
+  await tx.customerOrder.update({ where: { id: orderId }, data: { status } });
 }
 
 setOrderHook(async (tx, ctx, orderId, invoiceId) => {

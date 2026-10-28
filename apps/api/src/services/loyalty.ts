@@ -8,8 +8,13 @@ export async function postLoyalty(tx: Tx, e: LoyaltyEntry): Promise<{ balanceAft
   const c = await tx.customer.findUnique({ where: { id: e.customerId } });
   if (!c) throw notFound('Khách hàng');
   if (!e.points) return { balanceAfter: c.points };
-  if (c.points + e.points < 0 && !e.allowNegative) throw new AppError(409, 'INSUFFICIENT_POINTS', `Khách hàng chỉ còn ${c.points} điểm`);
-  const balanceAfter = (await tx.customer.update({ where: { id: c.id }, data: { points: { increment: e.points } } })).points;
+  if (e.points < 0 && !e.allowNegative) {
+    const r = await tx.customer.updateMany({ where: { id: c.id, points: { gte: -e.points } }, data: { points: { increment: e.points } } });
+    if (r.count !== 1) throw new AppError(409, 'INSUFFICIENT_POINTS', `Khách hàng chỉ còn ${c.points} điểm`);
+  } else {
+    await tx.customer.update({ where: { id: c.id }, data: { points: { increment: e.points } } });
+  }
+  const balanceAfter = (await tx.customer.findUniqueOrThrow({ where: { id: c.id } })).points;
   await tx.loyaltyTransaction.create({ data: { customerId: c.id, points: e.points, balanceAfter, docType: e.docType, docId: e.docId, docCode: e.docCode, note: e.note ?? '', ...(e.at ? { createdAt: e.at } : {}) } });
   return { balanceAfter };
 }

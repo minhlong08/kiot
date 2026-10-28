@@ -42,7 +42,8 @@ export function syncQueue(send: (sale: QueueItem['sale']) => Promise<unknown>): 
         sent++;
       } catch (e) {
         const status = (e as { status?: number }).status;
-        if (!status) break; // offline: try again later, keep order
+        // Offline, server restarting, session expired or rate-limited: try again later, keep order.
+        if (!status || status >= 500 || [401, 408, 429].includes(status)) break;
         failed++;
         await (await db()).put('queue', { ...item, status: 'error', error: (e as Error).message });
       }

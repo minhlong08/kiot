@@ -18,3 +18,4 @@ export * from './data/provinces';
 export * from './sale';
 export * from './vietqr';
 export * from './schemas/sales';
+export * from './words';

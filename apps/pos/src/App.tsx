@@ -129,7 +129,8 @@ export function App() {
       if (cart.customerId) setCustomers(await syncCustomers().catch(() => customers));
       return inv;
     } catch (e) {
-      if (e instanceof ApiError) throw e;
+      // A real rejection (4xx) goes back to the cashier; a server hiccup is treated like a network failure.
+      if (e instanceof ApiError && e.status < 500 && ![408, 429].includes(e.status)) throw e;
       // Network failure mid-request: queue with the same uuid so a server that did save it won't double-post.
       const item = await enqueue(input as never, label);
       await (await db()).put('queue', { ...item, clientUuid, sale: { ...item.sale, clientUuid } });
@@ -183,7 +184,18 @@ export function App() {
             <span className="flex gap-1">
               {q.status === 'error' && <button type="button" className="btn" onClick={async () => { await retryItem(q.clientUuid); await refreshQueue(); }}>Gửi lại</button>}
               {q.status === 'error' && <button type="button" className="btn" onClick={async () => {
-                const cart: Cart = { ...newCart(0, q.label), customerId: q.sale.customerId ?? null, lines: q.sale.lines.map(l => { const p = catalog.find(x => x.id === l.productId); return { key: `${l.productId}:${l.unitId ?? 0}`, productId: l.productId, unitId: l.unitId, conversion: 1, code: p?.code ?? '', name: p?.name ?? '', unitName: p?.unit ?? '', groupId: p?.groupId ?? null, qty: l.qty, price: l.price, listPrice: l.price, discount: l.discount, note: l.note, loyaltyEnabled: p?.loyaltyEnabled ?? true, fixedPoints: p?.points ?? null, imageUrl: p?.imageUrl ?? null }; }) };
+                // Restore everything the cashier entered (order, delivery, discounts, points, voucher); payments are re-entered at checkout.
+                const sale = q.sale;
+                const cart: Cart = {
+                  ...newCart(0, q.label), customerId: sale.customerId ?? null, priceBookId: sale.priceBookId ?? null, orderId: sale.orderId ?? null, channel: sale.channel ?? 'store',
+                  invoiceDiscount: sale.invoiceDiscount ?? 0, pointsUsed: sale.pointsUsed ?? 0, voucherCode: sale.voucherCode ?? '', otherIncome: sale.otherIncome ?? 0, note: sale.note ?? '',
+                  mode: sale.delivery ? 'delivery' : 'normal', delivery: sale.delivery ?? null,
+                  lines: sale.lines.map(l => {
+                    const p = catalog.find(x => x.id === l.productId);
+                    const u = p?.units.find(x => x.id === l.unitId);
+                    return { key: `${l.productId}:${l.unitId ?? 0}`, productId: l.productId, unitId: l.unitId, conversion: u?.conversion ?? 1, code: u?.code ?? p?.code ?? '', name: p?.name ?? '', unitName: u?.name ?? p?.unit ?? '', groupId: p?.groupId ?? null, qty: l.qty, price: l.price, listPrice: l.price, discount: l.discount, note: l.note, loyaltyEnabled: p?.loyaltyEnabled ?? true, fixedPoints: p?.points ?? null, imageUrl: p?.imageUrl ?? null };
+                  }),
+                };
                 setLoadRequest({ cart }); await removeFromQueue(q.clientUuid); await refreshQueue(); setQueueOpen(false);
               }}>Sửa</button>}
               <button type="button" className="btn text-rose-600" onClick={async () => { await removeFromQueue(q.clientUuid); await refreshQueue(); }}>Bỏ</button>

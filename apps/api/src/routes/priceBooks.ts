@@ -119,6 +119,7 @@ export async function priceBookRoutes(app: FastifyInstance) {
         if (it.price === null) await tx.priceBookItem.deleteMany({ where: { priceBookId: id, productId: it.productId } });
         else await tx.priceBookItem.upsert({ where: { priceBookId_productId: { priceBookId: id, productId: it.productId } }, create: { priceBookId: id, productId: it.productId, price: it.price }, update: { price: it.price } });
       }
+      await tx.product.updateMany({ where: { id: { in: items.map(i => i.productId) } }, data: { updatedAt: new Date() } });
       await audit(tx, req.auditCtx, { action: 'update', entity: 'PriceBook', entityId: id, entityCode: book.name, summary: `Cập nhật giá ${items.length} hàng hóa trong bảng giá ${book.name}` });
       return { ok: true };
     });
@@ -155,6 +156,7 @@ export async function priceBookRoutes(app: FastifyInstance) {
         const price = applyPriceFormula(base, f.op, f.value, f.unit, f.roundTo);
         await tx.priceBookItem.upsert({ where: { priceBookId_productId: { priceBookId: id, productId: p.id } }, create: { priceBookId: id, productId: p.id, price }, update: { price } });
       }
+      await tx.product.updateMany({ where: { id: { in: products.map(p => p.id) } }, data: { updatedAt: new Date() } });
       await audit(tx, req.auditCtx, { action: 'update', entity: 'PriceBook', entityId: id, entityCode: book.name, summary: `Áp dụng công thức giá cho ${products.length} hàng hóa (${f.base} ${f.op} ${f.value}${f.unit})` });
       return { updated: products.length };
     });

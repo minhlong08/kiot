@@ -42,12 +42,27 @@ async function expectedPrices(tx: Tx, input: InvoiceInput, branchId: number, use
   });
 }
 
-export async function createInvoice(tx: Tx, ctx: DocCtx, input: InvoiceInput, user: AuthUser) {
+const MAX_BACKDATE_MS = 48 * 3600_000;
+
+/**
+ * `opts.exchangeCredit` is the only way an "exchange" payment enters an invoice (from a return being exchanged);
+ * clients may never send exchange or points as payment methods.
+ */
+/** `opts.at` is for trusted internal callers (demo seed) only; clients go through the 48-hour clamp below. */
+export async function createInvoice(tx: Tx, ctx: DocCtx, input: InvoiceInput, user: AuthUser, opts: { exchangeCredit?: number; at?: Date } = {}) {
+  if (input.payments.some(p => p.method === 'exchange' || p.method === 'points')) throw badRequest('INVALID_PAYMENT', 'Phương thức thanh toán không hợp lệ');
   if (input.clientUuid) {
     const existing = await tx.invoice.findUnique({ where: { clientUuid: input.clientUuid } });
     if (existing) return existing;
   }
+  if (opts.exchangeCredit) input = { ...input, payments: [...input.payments, { method: 'exchange', amount: opts.exchangeCredit, fundId: null }] };
   const settings = await getSettings(tx);
+  if (input.orderId) {
+    // An order's deposit belongs to its customer: the invoice is always theirs.
+    const order = await tx.customerOrder.findUnique({ where: { id: input.orderId } });
+    if (!order || order.branchId !== ctx.branchId) throw notFound('Đơn đặt hàng');
+    input = { ...input, customerId: order.customerId };
+  }
   const customer = input.customerId ? await tx.customer.findUnique({ where: { id: input.customerId } }) : null;
   if (input.customerId && (!customer || !customer.isActive)) throw notFound('Khách hàng');
   if (settings.orders.requireCustomer && !customer) throw badRequest('CUSTOMER_REQUIRED', 'Vui lòng chọn khách hàng');
@@ -64,7 +79,10 @@ export async function createInvoice(tx: Tx, ctx: DocCtx, input: InvoiceInput, us
     };
   });
 
-  const at = input.createdAtClient && new Date(input.createdAtClient) < new Date() ? new Date(input.createdAtClient) : undefined;
+  // Only queued offline sales (with a client uuid) keep their own time, and never more than 48 hours back.
+  const nowMs = Date.now();
+  const clientMs = input.clientUuid && input.createdAtClient ? new Date(input.createdAtClient).getTime() : NaN;
+  const at = opts.at ?? (Number.isFinite(clientMs) && clientMs < nowMs ? new Date(Math.max(clientMs, nowMs - MAX_BACKDATE_MS)) : undefined);
   const promotions = await activePromotions(tx, { branchId: ctx.branchId, customerGroupId: customer?.groupId ?? null, at });
   const saleCtx = {
     promotions, promoCtx: { at: at ?? new Date(), branchId: ctx.branchId, customerGroupId: customer?.groupId ?? null },
@@ -72,6 +90,7 @@ export async function createInvoice(tx: Tx, ctx: DocCtx, input: InvoiceInput, us
   };
   const saleInput = { lines, invoiceDiscount: input.invoiceDiscount, voucherDiscount: 0, pointsUsed: input.pointsUsed, otherIncome: input.otherIncome, payments: input.payments, hasCustomer: !!customer };
   if (input.pointsUsed && !customer) throw badRequest('POINTS_NEED_CUSTOMER', 'Chọn khách hàng để dùng điểm');
+  if (input.pointsUsed && !settings.customers.loyaltyEnabled) throw badRequest('LOYALTY_DISABLED', 'Chương trình tích điểm đang tắt');
 
   let voucherDiscount = 0;
   if (input.voucherCode) {
@@ -82,6 +101,7 @@ export async function createInvoice(tx: Tx, ctx: DocCtx, input: InvoiceInput, us
     voucherDiscount = check.discount;
   }
   const r = computeSale({ ...saleInput, voucherDiscount }, saleCtx);
+  if (input.pointsUsed > Math.ceil(r.total / Math.max(1, settings.customers.pointValueVnd))) throw forbidden('POINTS_EXCEED_TOTAL', 'Số điểm sử dụng vượt quá giá trị hóa đơn');
 
   const maxPercent = user.isAdmin ? 100 : Math.max(user.maxDiscountPercent, group?.discountPercent ?? 0);
   if (discountLimitExceeded(r, maxPercent)) throw forbidden('DISCOUNT_LIMIT', `Giảm giá vượt quá mức cho phép (${maxPercent}%)`);
@@ -95,7 +115,9 @@ export async function createInvoice(tx: Tx, ctx: DocCtx, input: InvoiceInput, us
     throw forbidden('DEBT_LIMIT', `Vượt hạn mức công nợ ${settings.customers.debtLimit.toLocaleString('en-US')} đ`);
   }
 
-  const shift = await tx.shift.findFirst({ where: { userId: user.id, branchId: ctx.branchId, closedAt: null } });
+  // The shift that was open when the sale happened (offline sales synced later belong to their own shift).
+  const when = at ?? new Date();
+  const shift = await tx.shift.findFirst({ where: { userId: user.id, branchId: ctx.branchId, openedAt: { lte: when }, OR: [{ closedAt: null }, { closedAt: { gte: when } }] }, orderBy: { openedAt: 'desc' } });
   const code = await docCode(tx, settings.orders.codePrefixes.invoice, undefined, async c => !!(await tx.invoice.findUnique({ where: { code: c } })));
   const invoice = await tx.invoice.create({
     data: {
@@ -184,9 +206,12 @@ export function setOrderHook(fn: typeof applyInvoiceToOrder) { applyInvoiceToOrd
 export let rollbackInvoiceFromOrder: (tx: Tx, ctx: DocCtx, invoiceId: number) => Promise<void> = async () => undefined;
 export function setOrderRollbackHook(fn: typeof rollbackInvoiceFromOrder) { rollbackInvoiceFromOrder = fn; }
 
-export async function cancelInvoice(tx: Tx, ctx: DocCtx, id: number) {
+export async function cancelInvoice(tx: Tx, ctx: DocCtx, id: number, opts: { fromReturn?: boolean } = {}) {
   const inv = await tx.invoice.findUnique({ where: { id } });
   if (!inv || inv.branchId !== ctx.branchId) throw notFound('Hóa đơn');
+  if (!opts.fromReturn && await tx.saleReturn.count({ where: { exchangeInvoiceId: id, status: 'completed' } })) {
+    throw conflict('IS_EXCHANGE', 'Đây là hóa đơn đổi hàng, hãy hủy phiếu trả hàng tương ứng');
+  }
   if (await tx.saleReturn.count({ where: { invoiceId: id, status: 'completed' } })) throw conflict('HAS_RETURNS', 'Hóa đơn đã có phiếu trả hàng, hãy hủy phiếu trả trước');
   await transition(tx, 'invoice', id, ['completed', 'processing', 'undeliverable'], 'cancelled', { cancelledAt: new Date() });
   await reverseDocument(tx, 'invoice', id, 'invoice_cancel');

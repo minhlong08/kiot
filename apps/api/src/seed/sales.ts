@@ -66,7 +66,7 @@ export async function seedSales(prisma: PrismaClient, now = new Date()) {
           const payments = onCredit ? [{ method: 'cash' as const, amount: Math.round(subtotal / 2 / 1000) * 1000 }]
             : exactTransfer ? [{ method: 'transfer' as const, amount: subtotal }] : [{ method: 'cash' as const, amount: 99_000_000 }];
           const input = invoiceInputSchema.parse({ customerId: customer?.id ?? null, channel: pick(channels), lines, voucherCode: useVoucher ? voucher!.code : undefined, payments, createdAtClient: when.toISOString() });
-          const inv = await createInvoice(tx, ctx, input, user);
+          const inv = await createInvoice(tx, ctx, input, user, { at: when });
           invoices.push({ id: inv.id, customerId: inv.customerId, day });
         } catch { /* skip a sale the demo stock cannot cover */ }
       }
