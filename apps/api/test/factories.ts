@@ -25,3 +25,12 @@ export async function makeCustomer(prisma: PrismaClient, o: Partial<{ name: stri
   const code = `C${String(++seq).padStart(5, '0')}`;
   return prisma.customer.create({ data: { code, name, phone: o.phone ?? '', groupId: o.groupId ?? null, totalSpent: o.totalSpent ?? 0, searchText: normalizeVi(`${code} ${name} ${o.phone ?? ''}`) } });
 }
+
+/** An AuthUser-shaped object for calling services directly. */
+export function fakeUser(o: Partial<{ id: number; isAdmin: boolean; permissions: string[]; maxDiscountPercent: number; branchId: number }> = {}) {
+  return {
+    id: o.id ?? 1, username: 'u', fullName: 'Thu ngân', roleId: 1, roleName: 'r', isAdmin: o.isAdmin ?? false,
+    permissions: new Set(o.permissions ?? ['pos.access', 'invoices.create']), maxDiscountPercent: o.maxDiscountPercent ?? 10,
+    branchId: o.branchId ?? 1, mustChangePassword: false, sessionId: 's',
+  };
+}

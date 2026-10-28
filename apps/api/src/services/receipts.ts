@@ -1,5 +1,6 @@
 import { allocateReceiptCosts, receiptTotals, type ReceiptInput } from '@pd/shared';
 import type { Tx } from '../db';
+import { transition } from './transition';
 import { badRequest, conflict, notFound } from '../lib/errors';
 import { docCode } from '../lib/docs';
 import { audit } from './audit';
@@ -65,7 +66,7 @@ export async function completeReceipt(tx: Tx, ctx: DocCtx, id: number, at?: Date
     await postPartnerLedger(tx, { partnerType: 'supplier', partnerId: r.supplierId, amount: -r.paid, docType: 'receiptPayment', docId: r.id, docCode: r.code, at: when });
   }
   if (r.purchaseOrderId) await applyReceiptToOrder(tx, r.purchaseOrderId, r.lines, 1);
-  await tx.purchaseReceipt.update({ where: { id }, data: { status: 'completed', completedAt: when ?? new Date() } });
+  await transition(tx, 'purchaseReceipt', id, ['draft'], 'completed', { completedAt: when ?? new Date() });
   await audit(tx, ctx, { action: 'complete', entity: 'PurchaseReceipt', entityId: id, entityCode: r.code, summary: `Hoàn thành nhập hàng ${r.code}: ${r.total.toLocaleString('en-US')}` });
 }
 
@@ -82,6 +83,6 @@ export async function cancelReceipt(tx: Tx, ctx: DocCtx, id: number) {
     await cancelCashBySource(tx, ctx, 'receipt', id);
     if (r.purchaseOrderId) await applyReceiptToOrder(tx, r.purchaseOrderId, r.lines, -1);
   }
-  await tx.purchaseReceipt.update({ where: { id }, data: { status: 'cancelled' } });
+  await transition(tx, 'purchaseReceipt', id, [r.status], 'cancelled');
   await audit(tx, ctx, { action: 'cancel', entity: 'PurchaseReceipt', entityId: id, entityCode: r.code, summary: `Hủy phiếu nhập hàng ${r.code}` });
 }

@@ -1,5 +1,6 @@
 import type { PurchaseReturnInput } from '@pd/shared';
 import type { Tx } from '../db';
+import { transition } from './transition';
 import { badRequest, conflict, notFound } from '../lib/errors';
 import { docCode } from '../lib/docs';
 import { audit } from './audit';
@@ -78,7 +79,7 @@ export async function completePurchaseReturn(tx: Tx, ctx: DocCtx, id: number) {
     await recordCash(tx, ctx, { kind: 'in', amount: ret.refund, fundId: ret.fundId, categoryName: 'Thu tiền NCC hoàn trả', counterpartyType: 'supplier', counterpartyId: supplier.id, counterpartyName: supplier.name, sourceType: 'purchaseReturn', sourceId: ret.id, sourceCode: ret.code, codePrefix: 'TTTHN', note: `NCC hoàn tiền phiếu ${ret.code}` });
     await postPartnerLedger(tx, { partnerType: 'supplier', partnerId: ret.supplierId, amount: ret.refund, docType: 'purchaseReturnRefund', docId: ret.id, docCode: ret.code });
   }
-  await tx.purchaseReturn.update({ where: { id }, data: { status: 'completed', completedAt: new Date() } });
+  await transition(tx, 'purchaseReturn', id, ['draft'], 'completed', { completedAt: new Date() });
   await audit(tx, ctx, { action: 'complete', entity: 'PurchaseReturn', entityId: id, entityCode: ret.code, summary: `Hoàn thành trả hàng nhập ${ret.code}: ${ret.total.toLocaleString('en-US')}` });
 }
 
@@ -93,6 +94,6 @@ export async function cancelPurchaseReturn(tx: Tx, ctx: DocCtx, id: number) {
     await cancelCashBySource(tx, ctx, 'purchaseReturn', id);
     if (ret.receiptId) await applyToReceipt(tx, ret.receiptId, ret.lines, -1);
   }
-  await tx.purchaseReturn.update({ where: { id }, data: { status: 'cancelled' } });
+  await transition(tx, 'purchaseReturn', id, [ret.status], 'cancelled');
   await audit(tx, ctx, { action: 'cancel', entity: 'PurchaseReturn', entityId: id, entityCode: ret.code, summary: `Hủy phiếu trả hàng nhập ${ret.code}` });
 }

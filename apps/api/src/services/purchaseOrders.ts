@@ -1,6 +1,7 @@
 import type { PurchaseOrderInput } from '@pd/shared';
 import { receiptTotals } from '@pd/shared';
 import type { Tx } from '../db';
+import { transition } from './transition';
 import { conflict, notFound } from '../lib/errors';
 import { docCode } from '../lib/docs';
 import { audit } from './audit';
@@ -39,7 +40,7 @@ export async function confirmPurchaseOrder(tx: Tx, ctx: DocCtx, id: number) {
   if (!o) throw notFound('Phiếu đặt hàng nhập');
   if (o.status !== 'draft') throw conflict('NOT_DRAFT', 'Phiếu đã xác nhận');
   for (const l of o.lines) await adjustCounter(tx, l.productId, o.branchId, 'incoming', l.qty * l.conversion);
-  await tx.purchaseOrder.update({ where: { id }, data: { status: 'confirmed', confirmedAt: new Date() } });
+  await transition(tx, 'purchaseOrder', id, ['draft'], 'confirmed', { confirmedAt: new Date() });
   await audit(tx, ctx, { action: 'complete', entity: 'PurchaseOrder', entityId: id, entityCode: o.code, summary: `Đặt hàng nhập ${o.code}` });
 }
 
@@ -57,7 +58,7 @@ export async function finishPurchaseOrder(tx: Tx, ctx: DocCtx, id: number, how: 
   if (o.status !== 'draft') {
     for (const l of o.lines) await adjustCounter(tx, l.productId, o.branchId, 'incoming', -Math.max(0, l.qty - l.receivedQty) * l.conversion);
   }
-  await tx.purchaseOrder.update({ where: { id }, data: { status: how === 'close' ? 'completed' : 'cancelled', closedManually: how === 'close' } });
+  await transition(tx, 'purchaseOrder', id, [o.status], how === 'close' ? 'completed' : 'cancelled', { closedManually: how === 'close' });
   await audit(tx, ctx, { action: how === 'close' ? 'complete' : 'cancel', entity: 'PurchaseOrder', entityId: id, entityCode: o.code, summary: `${how === 'close' ? 'Kết thúc' : 'Hủy'} phiếu đặt hàng nhập ${o.code}` });
 }
 

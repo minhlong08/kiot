@@ -1,4 +1,5 @@
 import type { Tx } from '../db';
+import { transition } from './transition';
 import { badRequest, conflict, notFound } from '../lib/errors';
 import { docCode, mergeLines } from '../lib/docs';
 import { audit, type AuditCtx } from './audit';
@@ -70,7 +71,7 @@ export async function balanceStockTake(tx: Tx, ctx: DocCtx, id: number, opts: { 
     }
   }
   await refreshStockTakeTotals(tx, doc.id);
-  await tx.stockTake.update({ where: { id }, data: { status: 'balanced', balancedAt: new Date() } });
+  await transition(tx, 'stockTake', id, ['draft'], 'balanced', { balancedAt: new Date() });
   await audit(tx, ctx, { action: 'complete', entity: 'StockTake', entityId: id, entityCode: doc.code, summary: `Cân bằng kho ${doc.code}` });
 }
 
@@ -79,7 +80,7 @@ export async function cancelStockTake(tx: Tx, ctx: DocCtx, id: number) {
   if (!doc) throw notFound('Phiếu kiểm kho');
   if (doc.status === 'cancelled') throw conflict('ALREADY_CANCELLED', 'Phiếu đã hủy');
   if (doc.status === 'balanced') await reverseDocument(tx, 'stockTake', id, 'stockTake_cancel');
-  await tx.stockTake.update({ where: { id }, data: { status: 'cancelled' } });
+  await transition(tx, 'stockTake', id, [doc.status], 'cancelled');
   await audit(tx, ctx, { action: 'cancel', entity: 'StockTake', entityId: id, entityCode: doc.code, summary: `Hủy phiếu kiểm kho ${doc.code}` });
 }
 
@@ -124,7 +125,7 @@ export async function completeIssue(tx: Tx, ctx: DocCtx, id: number) {
     total += r.unitCost * l.qty;
     await tx.stockIssueLine.update({ where: { id: l.id }, data: { cost: r.unitCost, value: r.unitCost * l.qty } });
   }
-  await tx.stockIssue.update({ where: { id }, data: { status: 'completed', completedAt: new Date(), totalValue: total } });
+  await transition(tx, 'stockIssue', id, ['draft'], 'completed', { completedAt: new Date(), totalValue: total });
   await audit(tx, ctx, { action: 'complete', entity: 'StockIssue', entityId: id, entityCode: doc.code, summary: `Hoàn thành phiếu ${issueLabel(doc.kind)} ${doc.code}` });
 }
 
@@ -133,7 +134,7 @@ export async function cancelIssue(tx: Tx, ctx: DocCtx, id: number) {
   if (!doc) throw notFound('Phiếu');
   if (doc.status === 'cancelled') throw conflict('ALREADY_CANCELLED', 'Phiếu đã hủy');
   if (doc.status === 'completed') await reverseDocument(tx, doc.kind, id, `${doc.kind}_cancel`);
-  await tx.stockIssue.update({ where: { id }, data: { status: 'cancelled' } });
+  await transition(tx, 'stockIssue', id, [doc.status], 'cancelled');
   await audit(tx, ctx, { action: 'cancel', entity: 'StockIssue', entityId: id, entityCode: doc.code, summary: `Hủy phiếu ${issueLabel(doc.kind)} ${doc.code}` });
 }
 
@@ -178,7 +179,7 @@ export async function sendTransfer(tx: Tx, ctx: DocCtx, id: number) {
     await adjustCounter(tx, l.productId, doc.toBranchId, 'incoming', l.qtySent);
     value += r.unitCost * l.qtySent;
   }
-  await tx.transfer.update({ where: { id }, data: { status: 'inTransit', sentAt: new Date(), totalValue: value } });
+  await transition(tx, 'transfer', id, ['draft'], 'inTransit', { sentAt: new Date(), totalValue: value });
   await audit(tx, ctx, { action: 'complete', entity: 'Transfer', entityId: id, entityCode: doc.code, summary: `Chuyển hàng ${doc.code}` });
 }
 
@@ -196,7 +197,7 @@ export async function receiveTransfer(tx: Tx, ctx: DocCtx, id: number, received:
     await tx.transferLine.update({ where: { id: l.id }, data: { qtyReceived: qty } });
     total += qty;
   }
-  await tx.transfer.update({ where: { id }, data: { status: 'received', receivedAt: new Date(), totalReceivedQty: total } });
+  await transition(tx, 'transfer', id, ['inTransit'], 'received', { receivedAt: new Date(), totalReceivedQty: total });
   await audit(tx, ctx, { action: 'complete', entity: 'Transfer', entityId: id, entityCode: doc.code, summary: `Nhận hàng ${doc.code} (${total}/${doc.totalSentQty})` });
 }
 
@@ -209,6 +210,6 @@ export async function cancelTransfer(tx: Tx, ctx: DocCtx, id: number) {
     await reverseDocument(tx, 'transferOut', id, 'transferOut_cancel');
     for (const l of doc.lines) await adjustCounter(tx, l.productId, doc.toBranchId, 'incoming', -l.qtySent);
   }
-  await tx.transfer.update({ where: { id }, data: { status: 'cancelled' } });
+  await transition(tx, 'transfer', id, [doc.status], 'cancelled');
   await audit(tx, ctx, { action: 'cancel', entity: 'Transfer', entityId: id, entityCode: doc.code, summary: `Hủy phiếu chuyển hàng ${doc.code}` });
 }
