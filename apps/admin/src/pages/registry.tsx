@@ -34,6 +34,7 @@ import { TimesheetsPage } from './staff/TimesheetsPage';
 import { StaffSettingsPage } from './staff/StaffSettingsPage';
 import { PayrollPage } from './staff/PayrollPage';
 import { CommissionsPage } from './staff/CommissionsPage';
+import { REPORT_PAGES } from './reports/reportRoutes';
 import { makeStockDocListPage } from './stock/StockDocListPage';
 import { makeStockDocEditor } from './stock/StockDocEditor';
 import { STOCK_DOCS, type StockDocKind } from './stock/configs';
@@ -88,5 +89,6 @@ export const PAGES: Record<string, FC> = {
   '/staff-settings': StaffSettingsPage,
   '/payroll': PayrollPage,
   '/commissions': CommissionsPage,
+  ...REPORT_PAGES,
   ...stockPages,
 };
