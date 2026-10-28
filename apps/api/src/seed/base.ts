@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import type { PrismaClient } from '../generated/prisma/client';
+import { ensureCashDefaults } from '../services/cash';
 
 export const CASHIER_PERMS = ['pos.access', 'invoices.view', 'invoices.create', 'returns.view', 'returns.create', 'customers.view', 'customers.create', 'products.view', 'customerOrders.view', 'customerOrders.create'];
 
@@ -17,5 +18,6 @@ export async function seedBase(prisma: PrismaClient): Promise<boolean> {
       mustChangePassword: true, roleId: admin.id, defaultBranchId: branch.id, branchAccess: { create: [{ branchId: branch.id }] },
     },
   });
+  await ensureCashDefaults(prisma);
   return true;
 }

@@ -15,3 +15,7 @@ export async function makeProduct(prisma: PrismaClient, o: Partial<{ code: strin
 export async function mainBranchId(prisma: PrismaClient) {
   return (await prisma.branch.findFirstOrThrow({ where: { code: 'CN01' } })).id;
 }
+
+export async function makeSupplier(prisma: PrismaClient, name = `NCC ${++seq}`) {
+  return prisma.supplier.create({ data: { code: `S${String(++seq).padStart(5, '0')}`, name, searchText: normalizeVi(name) } });
+}
