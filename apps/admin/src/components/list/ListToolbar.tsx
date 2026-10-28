@@ -43,9 +43,9 @@ export function ListToolbar(p: Props) {
         <div className="relative" ref={ref}>
           <button type="button" className="btn-primary" onClick={() => setMenu(m => !m)}><Plus size={16} />{p.createLabel ?? t('common.create')}<ChevronDown size={14} /></button>
           {menu && (
-            <div className="absolute right-0 z-30 mt-1 w-48 rounded-lg bg-white py-1 shadow-xl ring-1 ring-slate-200">
+            <div role="menu" className="absolute right-0 z-30 mt-1 w-48 rounded-lg bg-white py-1 shadow-xl ring-1 ring-slate-200">
               {p.createMenu.map(i => (
-                <button key={i.label} type="button" className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50" onClick={() => { setMenu(false); i.onClick(); }}>{i.label}</button>
+                <button key={i.label} type="button" role="menuitem" className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50" onClick={() => { setMenu(false); i.onClick(); }}>{i.label}</button>
               ))}
             </div>
           )}
