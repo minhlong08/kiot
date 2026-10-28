@@ -274,6 +274,18 @@ export async function productRoutes(app: FastifyInstance) {
   });
 
   const bulkInput = z.object({ ids: z.array(z.number().int()).min(1), action: z.enum(['activate', 'deactivate', 'delete', 'setGroup']), groupId: z.number().int().optional() });
+  /** Thuế suất cho cả nhóm hàng (and its sub-groups); null = back to the store default. */
+  app.post('/api/products/vat-by-group', { preHandler: requirePermission('products.edit', 'tax.edit') }, async req => {
+    const b = z.object({ groupId: z.number().int(), vatRate: z.number().int().min(0).max(100).nullable() }).parse(req.body);
+    const groups = await db.productGroup.findMany({ select: { id: true, parentId: true } });
+    const ids = new Set([b.groupId]);
+    for (let grew = true; grew;) { grew = false; for (const g of groups) if (g.parentId && ids.has(g.parentId) && !ids.has(g.id)) { ids.add(g.id); grew = true; } }
+    return db.$transaction(async tx => {
+      const r = await tx.product.updateMany({ where: { groupId: { in: [...ids] } }, data: { vatRate: b.vatRate } });
+      await audit(tx, req.auditCtx, { action: 'update', entity: 'ProductGroup', entityId: b.groupId, entityCode: String(b.groupId), summary: `Đặt thuế suất ${b.vatRate ?? 'mặc định'}${b.vatRate === null ? '' : '%'} cho ${r.count} hàng hóa của nhóm` });
+      return { updated: r.count };
+    });
+  });
   app.post('/api/products/bulk', { preHandler: requirePermission('products.edit') }, async req => {
     const b = bulkInput.parse(req.body);
     if (b.action === 'delete' && !hasPerm(req.user, 'products.delete')) throw new AppError(403, 'FORBIDDEN', 'Bạn không có quyền xóa hàng hóa');

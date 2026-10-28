@@ -74,3 +74,14 @@ test('a second tab keeps its own cart', () => {
   fireEvent.click(screen.getByRole('tab', { name: /Hóa đơn 1/ }));
   expect(screen.getByTestId('line-NA001')).toBeInTheDocument();
 });
+
+test('when the store requires a customer, checkout is blocked until one is chosen', async () => {
+  const b = boot();
+  b.settings.orders.requireCustomer = true;
+  const { search } = setup({ boot: b });
+  scan(search, '893');
+  fireEvent.keyDown(window, { key: 'F9' });
+  const panel = await screen.findByTestId('payment-panel');
+  expect(within(panel).getByRole('button', { name: 'THANH TOÁN' })).toBeDisabled();
+  expect(within(panel).getByText('Cần chọn khách hàng')).toBeInTheDocument();
+});

@@ -19,6 +19,8 @@ type Props = {
 };
 
 export function PaymentPanel({ boot, cart, customer, exchangeCredit, depositAvailable, onChange, onClose, onPay, busy, checkVoucher }: Props) {
+  // Store rule (Thiết lập › Đơn hàng): every sale needs a customer; the API enforces it too.
+  const needsCustomer = boot.settings.orders.requireCustomer && !customer;
   const defaultFund = (m: PaymentMethod) => (m === 'cash' ? null : boot.settings.pos.defaultFundIds[m as 'transfer' | 'card' | 'ewallet'] ?? boot.funds.find(f => (m === 'ewallet' ? f.type === 'ewallet' : f.type === 'bank'))?.id ?? null);
   const base = previewSale(cart, boot, customer, [], exchangeCredit);
   const [amounts, setAmounts] = useState<Partial<Record<PaymentMethod, number>>>({ cash: Math.max(0, base.due - exchangeCredit), ...(depositAvailable ? { deposit: Math.min(depositAvailable, base.due) } : {}) });
@@ -122,8 +124,9 @@ export function PaymentPanel({ boot, cart, customer, exchangeCredit, depositAvai
         <label className="block pt-2"><span className="label">Ghi chú</span><input className="input" value={cart.note} onChange={e => onChange({ note: e.target.value })} /></label>
       </div>
       <div className="border-t border-slate-200 p-3">
+        {needsCustomer && <p className="mb-2 text-center text-sm font-medium text-rose-600">Cần chọn khách hàng</p>}
         <button type="button" className="w-full rounded-md bg-accent-500 py-3 text-lg font-bold text-slate-900 hover:bg-accent-400 disabled:opacity-50"
-          disabled={busy || !cart.lines.length || r.nonCashOverpay || !deliveryOk || (!customer && cart.mode !== 'delivery' && r.debt > 0)} onClick={() => onPay(payments)}>THANH TOÁN</button>
+          disabled={busy || !cart.lines.length || r.nonCashOverpay || !deliveryOk || needsCustomer || (!customer && cart.mode !== 'delivery' && r.debt > 0)} onClick={() => onPay(payments)}>THANH TOÁN</button>
       </div>
     </div>
   );

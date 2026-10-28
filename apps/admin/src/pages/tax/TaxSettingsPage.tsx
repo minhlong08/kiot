@@ -1,5 +1,32 @@
+import { useState } from 'react';
+import { api } from '../../lib/api';
+import { toast, toastError } from '../../components/toast';
+import { useGroups } from '../products/useLookups';
 import { Field, NumberInput } from '../../components/Field';
 import { useSettingsSection } from '../settings/useSettingsForm';
+
+/** Sets one VAT rate on every product of a group (and its sub-groups). */
+function VatByGroup() {
+  const groups = useGroups();
+  const [groupId, setGroupId] = useState(0);
+  const [rate, setRate] = useState('');
+  async function apply() {
+    try {
+      const r = await api<{ updated: number }>('/products/vat-by-group', { body: { groupId, vatRate: rate === '' ? null : Number(rate) } });
+      toast(`Đã cập nhật thuế suất cho ${r.updated} hàng hóa`);
+    } catch (e) { toastError(e); }
+  }
+  return (
+    <div className="card space-y-3 p-5">
+      <h2 className="font-semibold">Áp thuế suất cho nhóm hàng</h2>
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="Nhóm hàng"><select className="input w-56" aria-label="Nhóm hàng" value={groupId} onChange={e => setGroupId(Number(e.target.value))}><option value={0}>Chọn nhóm</option>{groups.data?.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select></Field>
+        <Field label="Thuế suất (%)" hint="Để trống: dùng mức mặc định"><input className="input w-32" inputMode="numeric" aria-label="Thuế suất nhóm" value={rate} onChange={e => setRate(e.target.value.replace(/\D/g, '').slice(0, 3))} /></Field>
+        <button type="button" className="btn" disabled={!groupId} onClick={apply}>Áp dụng</button>
+      </div>
+    </div>
+  );
+}
 
 export function TaxSettingsPage() {
   const { value, patch, save, saving } = useSettingsSection('tax');
@@ -25,6 +52,7 @@ export function TaxSettingsPage() {
         <p className="text-sm text-slate-500">Giá bán đã gồm thuế GTGT. Thuế suất riêng cho từng hàng hóa đặt trong màn hình Hàng hóa. Kết nối nhà cung cấp hóa đơn điện tử thật được cắm vào qua adapter (xem README).</p>
         <button type="button" className="btn-primary" disabled={saving} onClick={save}>Lưu</button>
       </div>
+      <VatByGroup />
     </div>
   );
 }
