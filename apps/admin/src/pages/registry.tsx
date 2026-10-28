@@ -32,6 +32,8 @@ import { EmployeesPage } from './staff/EmployeesPage';
 import { SchedulePage } from './staff/SchedulePage';
 import { TimesheetsPage } from './staff/TimesheetsPage';
 import { StaffSettingsPage } from './staff/StaffSettingsPage';
+import { PayrollPage } from './staff/PayrollPage';
+import { CommissionsPage } from './staff/CommissionsPage';
 import { makeStockDocListPage } from './stock/StockDocListPage';
 import { makeStockDocEditor } from './stock/StockDocEditor';
 import { STOCK_DOCS, type StockDocKind } from './stock/configs';
@@ -84,5 +86,7 @@ export const PAGES: Record<string, FC> = {
   '/work-schedule': () => <SchedulePage />,
   '/timesheets': () => <TimesheetsPage />,
   '/staff-settings': StaffSettingsPage,
+  '/payroll': PayrollPage,
+  '/commissions': CommissionsPage,
   ...stockPages,
 };
