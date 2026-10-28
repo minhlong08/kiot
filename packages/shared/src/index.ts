@@ -11,3 +11,7 @@ export * from './pricing';
 export * from './schemas/products';
 export * from './purchasing';
 export * from './schemas/purchasing';
+export * from './loyalty';
+export * from './promotions';
+export * from './schemas/customers';
+export * from './data/provinces';
