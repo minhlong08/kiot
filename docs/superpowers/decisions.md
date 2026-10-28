@@ -68,3 +68,23 @@ Rulings made during the build and deferred review findings, per milestone.
 - Final: minor (deferred): reversal rows dated at cancellation, original rows at effective date (by design)
 - Final: minor (deferred): incoming invoice import-template route has no permission check (template only)
 - Final: minor (deferred): purchase-order services rely on route-level branch pre-check outside the transaction
+
+## Milestone 4 — Customers, loyalty, promotions
+
+- Task 1: Ruling: plan said 'buy 2 get 1 on 5 items → 2 free' but its own rule floor(5/3)=1; standard overlapping buy-X-get-Y gives 1 free (cheapest) — tested as 1 — cost: none
+- Task 1: Ruling: GiftItem carries giftValue (filled by API from product price) so the engine can compare it with invoice discounts — cost: none
+- Task 1: Ruling: province list only (34); ward is free text — cost: no ward validation
+- Task 2: Ruling: Customer.birthMonth column (denormalised from birthday) for the birthday-month filter without date functions in SQL — cost: none
+- Task 3: Ruling: GET /customers/:id/history deferred to M5 (needs invoice tables) — cost: none
+- Task 4: Ruling: groups API lives in routes/customers.ts (shares helpers) — cost: none
+- Task 5: Ruling: /promotions/active returns promotions possibly applicable today at this branch (hour/day checked at evaluation time) so POS can cache once per session — cost: none
+- Task 7: Ruling: purchase-history tab is a hook (customerHistoryTab) filled in by M5 — cost: none
+- Task 10: Ruling: foundation E2E renamed 00-foundation so it runs first (it asserts the forced first-login password change) — cost: none
+- Final: minor (deferred): import creates duplicate phones without row warnings
+- Final: minor (deferred): overnight hour ranges like [22,2] unsupported (API accepts them)
+- Final: minor (deferred): minQty checked per line, not summed across lines of the same product
+- Final: minor (deferred): fixed-points products earn points even when fully discounted/paid by points
+- Final: minor (deferred): /promotions/evaluate trusts client prices — M5 must re-price server-side (planned)
+- Final: minor (deferred): activePromotions parses ended promotions (filter endAt in query)
+- Final: minor (deferred): message logs visible to customers.view holders
+- Final: minor (deferred): checkVoucher says 'Đơn hàng tối thiểu' for a zero order total
