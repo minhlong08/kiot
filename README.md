@@ -8,9 +8,30 @@ A self-hosted retail management + point-of-sale application for a Vietnamese fas
 
 ---
 
+## Quick start — one command
+
+From the project folder:
+
+| macOS / Linux | Windows (Command Prompt or PowerShell) |
+|---|---|
+| `./start.sh` | `start.bat` *(or double-click `start.bat` in Explorer)* |
+
+The script does everything for you, and only what is missing:
+
+1. **Node.js 24** — uses it if you have it; on macOS/Linux switches to it with nvm, or offers to install nvm + Node 24 for your user; on Windows offers to install Node.js LTS with `winget`. It always **asks before installing**.
+2. **pnpm 10** — uses yours, or runs it through `npx` (no global install).
+3. **Dependencies** — runs `pnpm install` on the first run and whenever `pnpm-lock.yaml` changes.
+4. **Starts the app** (creates the database and demo data on the first run), waits until it answers, then **opens the browser** at <http://localhost:5173> and prints the URLs and the demo login (`admin` / `admin123`).
+
+If the app is already running it just opens the browser. Stop it with `Ctrl + C` (or close the window). Other options: `./start.sh --check` (install/check prerequisites only, don't start) and `NO_OPEN=1 ./start.sh` (don't open the browser).
+
+Prefer doing it by hand, or the script stopped with a message? Follow the steps below.
+
+---
+
 ## 1. Set up and run locally (step by step)
 
-The steps below are for **macOS** (they also work on Linux; on Windows use WSL2).
+The steps below are for **macOS** (they also work on Linux). On Windows, `start.bat` above is the easiest way; the manual steps are the same with Node.js installed from <https://nodejs.org> instead of nvm.
 
 ### Step 1 — Install Node.js 24 with nvm
 
