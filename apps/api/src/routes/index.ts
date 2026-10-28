@@ -26,6 +26,7 @@ import { codReconciliationRoutes } from './codReconciliations';
 import { onlineRoutes } from './online';
 import { shopRoutes } from './shop';
 import { taxRoutes } from './tax';
+import { staffRoutes } from './staff';
 import { stockIssueRoutes, stockTakeRoutes, transferRoutes } from './stockDocs';
 
-export const routes: RoutePlugin[] = [authRoutes, branchRoutes, roleRoutes, userRoutes, settingsRoutes, auditLogRoutes, catalogRoutes, productRoutes, stockTakeRoutes, stockIssueRoutes, transferRoutes, priceBookRoutes, fileRoutes, supplierRoutes, purchaseOrderRoutes, receiptRoutes, purchaseReturnRoutes, incomingInvoiceRoutes, servicePurchaseRoutes, customerRoutes, promotionRoutes, messagingRoutes, invoiceRoutes, returnRoutes, customerOrderRoutes, posRoutes, cashbookRoutes, deliveryPartnerRoutes, deliveryRoutes, codReconciliationRoutes, onlineRoutes, shopRoutes, taxRoutes];
+export const routes: RoutePlugin[] = [authRoutes, branchRoutes, roleRoutes, userRoutes, settingsRoutes, auditLogRoutes, catalogRoutes, productRoutes, stockTakeRoutes, stockIssueRoutes, transferRoutes, priceBookRoutes, fileRoutes, supplierRoutes, purchaseOrderRoutes, receiptRoutes, purchaseReturnRoutes, incomingInvoiceRoutes, servicePurchaseRoutes, customerRoutes, promotionRoutes, messagingRoutes, invoiceRoutes, returnRoutes, customerOrderRoutes, posRoutes, cashbookRoutes, deliveryPartnerRoutes, deliveryRoutes, codReconciliationRoutes, onlineRoutes, shopRoutes, taxRoutes, staffRoutes];

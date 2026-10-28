@@ -983,3 +983,117 @@ model EInvoice {
   @@index([invoiceId])
   @@index([status, issuedAt])
 }
+
+model Employee {
+  id                Int       @id @default(autoincrement())
+  code              String    @unique
+  name              String
+  phone             String    @default("")
+  email             String    @default("")
+  branchId          Int
+  position          String    @default("")
+  userId            Int?      @unique
+  birthday          DateTime?
+  idNumber          String    @default("")
+  address           String    @default("")
+  startDate         DateTime?
+  salaryTemplateId  Int?
+  commissionTableId Int?
+  note              String    @default("")
+  isActive          Boolean   @default(true)
+  searchText        String    @default("")
+  createdAt         DateTime  @default(now())
+
+  @@index([branchId])
+}
+
+model WorkShift {
+  id           Int     @id @default(autoincrement())
+  branchId     Int
+  name         String
+  start        String
+  end          String
+  breakMinutes Int     @default(0)
+  color        String  @default("#0f766e")
+  isActive     Boolean @default(true)
+}
+
+model ScheduleEntry {
+  id         Int    @id @default(autoincrement())
+  employeeId Int
+  shiftId    Int
+  date       String
+
+  @@unique([employeeId, shiftId, date])
+  @@index([date])
+}
+
+model Timesheet {
+  id         Int       @id @default(autoincrement())
+  employeeId Int
+  shiftId    Int
+  date       String
+  checkIn    DateTime?
+  checkOut   DateTime?
+  status     String    @default("scheduled")
+  late       Int       @default(0)
+  early      Int       @default(0)
+  overtime   Int       @default(0)
+  worked     Int       @default(0)
+  manual     Boolean   @default(false)
+  note       String    @default("")
+  updatedAt  DateTime  @default(now())
+
+  @@unique([employeeId, shiftId, date])
+  @@index([date])
+}
+
+model SalaryTemplate {
+  id           Int     @id @default(autoincrement())
+  name         String
+  mode         String
+  amount       Int
+  overtimeRate Int     @default(150)
+  allowances   String  @default("[]")
+  deductions   String  @default("[]")
+  isActive     Boolean @default(true)
+}
+
+model CommissionTable {
+  id       Int     @id @default(autoincrement())
+  name     String
+  rules    String  @default("[]")
+  isActive Boolean @default(true)
+}
+
+model PayrollPeriod {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  name        String
+  branchId    Int
+  from        String
+  to          String
+  status      String    @default("draft")
+  createdById Int
+  createdAt   DateTime  @default(now())
+  lockedAt    DateTime?
+}
+
+model Paysheet {
+  id         Int    @id @default(autoincrement())
+  code       String @unique
+  periodId   Int
+  employeeId Int
+  base       Int    @default(0)
+  overtime   Int    @default(0)
+  allowance  Int    @default(0)
+  deduction  Int    @default(0)
+  commission Int    @default(0)
+  bonus      Int    @default(0)
+  total      Int    @default(0)
+  paid       Int    @default(0)
+  detail     String @default("{}")
+  note       String @default("")
+
+  @@unique([periodId, employeeId])
+}
