@@ -51,6 +51,9 @@ async function completeDelivered(tx: Tx, ctx: DocCtx, inv: Inv, d: Del) {
   const r = await tx.invoice.updateMany({ where: { id: inv.id, status: 'processing' }, data: { status: 'completed', completedAt: new Date() } });
   if (r.count !== 1) throw conflict('STATE_CHANGED', 'Hóa đơn đã được cập nhật bởi thao tác khác, vui lòng tải lại');
   const customer = inv.customerId ? await tx.customer.findUnique({ where: { id: inv.customerId } }) : null;
+  const paidBefore = inv.paid;
+  // Whoever collected it, the receiver has now paid the COD: the invoice is fully paid (returns cap refunds at `paid`).
+  if (d.cod > 0) await tx.invoice.update({ where: { id: inv.id }, data: { paid: { increment: d.cod } } });
   if (d.partnerId) {
     // The carrier collected the COD and now owes it to the shop; a fee the shop pays is netted off.
     await postPartnerLedger(tx, { partnerType: 'deliveryPartner', partnerId: d.partnerId, amount: d.cod, docType: 'deliveryCod', docId: inv.id, docCode: inv.code });
@@ -62,12 +65,11 @@ async function completeDelivered(tx: Tx, ctx: DocCtx, inv: Inv, d: Del) {
       counterpartyName: customer?.name ?? d.receiverName, sourceType: 'invoice', sourceId: inv.id, sourceCode: inv.code, codePrefix: 'TTHD', note: `Thu COD hóa đơn ${inv.code}`,
     });
     await tx.invoicePayment.create({ data: { invoiceId: inv.id, method: 'cash', amount: d.cod, fundId: v?.fundId ?? null, cashVoucherId: v?.id ?? null } });
-    await tx.invoice.update({ where: { id: inv.id }, data: { paid: { increment: d.cod } } });
   }
   if (customer) {
     // Delivery sales stay off customer debt until delivered; now the sale and everything paid for it (incl. COD) post together.
     const deposit = (await tx.invoicePayment.aggregate({ _sum: { amount: true }, where: { invoiceId: inv.id, method: 'deposit' } }))._sum.amount ?? 0;
     await postPartnerLedger(tx, { partnerType: 'customer', partnerId: customer.id, amount: inv.total - inv.pointsValue, docType: 'invoice', docId: inv.id, docCode: inv.code });
-    await postPartnerLedger(tx, { partnerType: 'customer', partnerId: customer.id, amount: -(inv.paid + d.cod - deposit), docType: 'invoicePayment', docId: inv.id, docCode: inv.code });
+    await postPartnerLedger(tx, { partnerType: 'customer', partnerId: customer.id, amount: -(paidBefore + d.cod - deposit), docType: 'invoicePayment', docId: inv.id, docCode: inv.code });
   }
 }

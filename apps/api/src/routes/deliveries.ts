@@ -9,6 +9,7 @@ import { AppError, conflict, notFound } from '../lib/errors';
 import { audit } from '../services/audit';
 import { DELIVERY_STATUS_LABELS, EDITABLE, setDeliveryStatus } from '../services/delivery';
 import { docCtx, idOf } from './purchasing';
+import { issueAutoDraft } from '../services/tax';
 
 const STATUSES = Object.keys(DELIVERY_STATUS_LABELS);
 const editInput = deliveryInputSchema.extend({ feePayer: z.enum(['shop', 'customer']).default('shop'), trackingCode: z.string().max(60).default('') }).omit({ cod: true });
@@ -97,7 +98,9 @@ export async function deliveryRoutes(app: FastifyInstance) {
   app.post('/api/deliveries/:invoiceId/status', { preHandler: requirePermission('deliveries.edit') }, async req => {
     const b = statusInput.parse(req.body);
     const d = await find(req);
-    return db.$transaction(tx => setDeliveryStatus(tx, docCtx(req), d.invoiceId, b.to, { note: b.note }));
+    const r = await db.$transaction(tx => setDeliveryStatus(tx, docCtx(req), d.invoiceId, b.to, { note: b.note }));
+    if (b.to === 'delivered') await issueAutoDraft(db, docCtx(req), d.invoiceId);
+    return r;
   });
   app.post('/api/deliveries/bulk-status', { preHandler: requirePermission('deliveries.edit') }, async req => {
     const b = statusInput.extend({ invoiceIds: z.array(z.number().int()).min(1).max(200) }).parse(req.body);
@@ -105,6 +108,7 @@ export async function deliveryRoutes(app: FastifyInstance) {
     for (const id of b.invoiceIds) {
       try {
         await db.$transaction(tx => setDeliveryStatus(tx, docCtx(req), id, b.to, { note: b.note }));
+        if (b.to === 'delivered') await issueAutoDraft(db, docCtx(req), id);
         results.push({ invoiceId: id, ok: true });
       } catch (e) {
         results.push({ invoiceId: id, ok: false, error: e instanceof AppError ? e.message : 'Lỗi không xác định' });

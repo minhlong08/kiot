@@ -9,6 +9,7 @@ import { linesWithInfo } from '../services/purchaseLines';
 import { cancelReturn, createReturn, returnDraft, returnInputSchema } from '../services/returns';
 import { stripInvoiceCost } from './invoices';
 import { docCtx, idOf } from './purchasing';
+import { issueAutoDraft } from '../services/tax';
 
 export async function returnRoutes(app: FastifyInstance) {
   const db = app.prisma;
@@ -57,6 +58,7 @@ export async function returnRoutes(app: FastifyInstance) {
   app.post('/api/returns', { preHandler: requirePermission('returns.create') }, async req => {
     const input = returnInputSchema.parse(req.body);
     const r = await db.$transaction(tx => createReturn(tx, docCtx(req), input, user(req)), { timeout: 30_000 });
+    await issueAutoDraft(db, docCtx(req), r.exchangeInvoiceId);
     return detail(req, r.id);
   });
   app.post('/api/returns/:id/cancel', { preHandler: requirePermission('returns.delete') }, async req => {

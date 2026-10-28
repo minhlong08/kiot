@@ -9,6 +9,7 @@ import { linesWithInfo } from '../services/purchaseLines';
 import { getSettings } from '../services/settings';
 import { cancelInvoice, createInvoice } from '../services/sales';
 import { docCtx, idOf } from './purchasing';
+import { issueAutoDraft } from '../services/tax';
 
 export const STATUS_LABELS: Record<string, string> = { processing: 'Đang xử lý', completed: 'Hoàn thành', undeliverable: 'Không giao được', cancelled: 'Đã hủy' };
 const COST_KEYS = ['cost', 'costTotal'];
@@ -112,6 +113,7 @@ export async function invoiceRoutes(app: FastifyInstance) {
     const input = invoiceInputSchema.parse(req.body);
     try {
       const inv = await db.$transaction(tx => createInvoice(tx, docCtx(req), input, user(req)), { timeout: 30_000 });
+      await issueAutoDraft(db, docCtx(req), inv.id);
       return detail(req, inv.id);
     } catch (e) {
       // Two replays of one offline sale racing: the loser returns the winner's invoice.

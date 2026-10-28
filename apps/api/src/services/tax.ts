@@ -94,12 +94,27 @@ export async function assertInvoiceCancellable(tx: Tx, invoiceId: number) {
   await tx.eInvoice.updateMany({ where: { invoiceId, status: 'draft' }, data: { status: 'deleted' } });
 }
 
-/** autoIssue setting: issue an e-invoice as soon as a sale is completed. */
+/** autoIssue setting, inside the sale's transaction: only the local draft (no provider call, so the sale can never fail on it). */
 export async function autoIssueEInvoice(tx: Tx, ctx: DocCtx, invoiceId: number) {
   if (!(await getSettings(tx)).tax.autoIssue) return;
-  const e = await createEInvoiceDraft(tx, ctx, { invoiceId });
-  await issueEInvoice(tx, ctx, e.id);
+  await createEInvoiceDraft(tx, ctx, { invoiceId });
 }
+
+/**
+ * After the sale has committed: issue its auto draft through the provider. Best effort — on failure the
+ * draft stays and can be issued by hand from the e-invoice screen.
+ */
+export async function issueAutoDraft(db: PrismaLike, ctx: DocCtx, invoiceId: number | null | undefined) {
+  if (!invoiceId || !(await getSettings(db)).tax.autoIssue) return;
+  const draft = await db.eInvoice.findFirst({ where: { invoiceId, status: 'draft' } });
+  if (!draft) return;
+  try {
+    await db.$transaction(tx => issueEInvoice(tx, ctx, draft.id));
+  } catch (e) {
+    console.warn(`[einvoice] auto-issue failed for invoice ${invoiceId}: ${e instanceof Error ? e.message : e}`);
+  }
+}
+type PrismaLike = Tx & { $transaction<T>(fn: (tx: Tx) => Promise<T>): Promise<T> };
 
 /** Quarter in Vietnam time (UTC+7) as a UTC range. */
 export function quarterRange(year: number, quarter: number) {

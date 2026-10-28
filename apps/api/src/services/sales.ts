@@ -214,6 +214,8 @@ export async function cancelInvoice(tx: Tx, ctx: DocCtx, id: number, opts: { fro
   const delivery = inv.isDelivery ? await tx.invoiceDelivery.findUnique({ where: { invoiceId: id } }) : null;
   if (delivery && !opts.fromDelivery) {
     if (['delivering', 'failed', 'returning'].includes(delivery.status)) throw conflict('DELIVERY_IN_PROGRESS', 'Hàng đang được giao: hãy cập nhật vận đơn sang chuyển hoàn');
+    // The carrier holds the COD it collected; cancelling would erase that receivable. A return refunds the customer instead.
+    if (delivery.status === 'delivered' && delivery.partnerId && delivery.cod > 0) throw conflict('DELIVERED_USE_RETURN', 'Hàng đã giao và đối tác đã thu hộ: hãy lập phiếu trả hàng thay vì hủy hóa đơn');
     if (delivery.reconciledAt) throw conflict('DELIVERY_RECONCILED', 'Vận đơn đã đối soát COD: hãy hủy phiếu đối soát trước');
   }
   if (!opts.fromReturn && await tx.saleReturn.count({ where: { exchangeInvoiceId: id, status: 'completed' } })) {

@@ -93,3 +93,20 @@ test('list filters by status and partner and totals COD and fees; the delivery c
   const bulk = (await req('POST', '/api/deliveries/bulk-status', { invoiceIds: [inv.id, 999999], to: 'delivered' })).json();
   expect(bulk.results.map((r: { ok: boolean }) => r.ok)).toEqual([true, false]);
 });
+
+// ── review fixes
+test('a delivered carrier waybill with COD cannot be cancelled from the invoice (use a return)', async () => {
+  const { inv } = await deliverySale();
+  await walk(inv.id, ['delivering', 'delivered']);
+  expect((await req('POST', `/api/invoices/${inv.id}/cancel`, {})).json().error.code).toBe('DELIVERED_USE_RETURN');
+});
+
+test('carrier COD counts as paid once delivered, so a later return can refund it in cash', async () => {
+  const { inv } = await deliverySale({ prepaid: 100_000 });
+  await walk(inv.id, ['delivering', 'delivered']);
+  expect((await t.prisma.invoice.findUniqueOrThrow({ where: { id: inv.id } })).paid).toBe(300_000);
+  const draft = (await req('GET', `/api/invoices/${inv.id}/return-draft`)).json();
+  const ret = await req('POST', '/api/returns', { invoiceId: inv.id, lines: [{ invoiceLineId: draft.lines[0].invoiceLineId, qty: 1 }], refundMethod: 'cash' });
+  expect(ret.statusCode).toBe(200);
+  expect(ret.json().refunded).toBe(300_000);
+});

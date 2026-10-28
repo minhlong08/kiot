@@ -73,3 +73,23 @@ test('household mode applies revenue × (1% VAT + 0.5% PIT)', async () => {
   expect(d.household.revenue).toBe(d.rows.reduce((s: number, r: { gross: number }) => s + r.gross, 0));
   await req('PUT', '/api/settings', { tax: { mode: 'company' } });
 });
+
+test('auto-issue: a failing e-invoice provider never fails the sale; the draft stays for a manual issue', async () => {
+  const { registerEInvoiceProvider, StubEInvoiceProvider } = await import('../src/adapters/einvoice');
+  registerEInvoiceProvider({ name: 'down', issue: async () => { throw new Error('provider down'); }, cancel: async () => undefined });
+  await req('PUT', '/api/settings', { tax: { autoIssue: true } });
+  try {
+    const p = await product(200_000, 8);
+    const res = await req('POST', '/api/invoices', { lines: [{ productId: p.id, qty: 1, price: 200_000 }], payments: [{ method: 'cash', amount: 200_000 }] });
+    expect(res.statusCode).toBe(200);
+    const e = await t.prisma.eInvoice.findFirstOrThrow({ where: { invoiceId: res.json().id } });
+    expect(e.status).toBe('draft');
+    registerEInvoiceProvider(new StubEInvoiceProvider());
+    const p2 = await product(200_000, 8);
+    const ok = (await req('POST', '/api/invoices', { lines: [{ productId: p2.id, qty: 1, price: 200_000 }], payments: [{ method: 'cash', amount: 200_000 }] })).json();
+    expect((await t.prisma.eInvoice.findFirstOrThrow({ where: { invoiceId: ok.id } })).status).toBe('issued');
+  } finally {
+    registerEInvoiceProvider(new StubEInvoiceProvider());
+    await req('PUT', '/api/settings', { tax: { autoIssue: false } });
+  }
+});
