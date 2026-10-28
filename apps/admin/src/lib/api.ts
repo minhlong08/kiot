@@ -43,7 +43,9 @@ export async function api<T = unknown>(path: string, init: Init = {}): Promise<T
 
 /** Downloads a file response (e.g. Excel export) using the browser. */
 export async function download(path: string, query?: Query, filename = 'export.xlsx') {
-  const blob = await api<Blob>(path, { query });
+  const res = await api<unknown>(path, { query });
+  // JSON responses (e.g. backups) come back parsed: turn them back into a file.
+  const blob = res instanceof Blob ? res : new Blob([JSON.stringify(res)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

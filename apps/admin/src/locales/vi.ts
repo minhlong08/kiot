@@ -140,5 +140,6 @@ export const vi: Record<string, string> = {
   'settings.cashbook': 'Sổ quỹ',
   'settings.pos': 'Bán hàng',
   'settings.print': 'Mẫu in',
+  'settings.backup': 'Sao lưu & khôi phục',
   'settings.auditLog': 'Lịch sử thao tác',
 };
