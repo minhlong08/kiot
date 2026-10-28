@@ -50,6 +50,13 @@ export const settingsSchema = z.object({
     receiptTemplate: z.enum(['58', '80', 'A4']).default('80'),
     printAfterPayment: z.boolean().default(true),
   }).prefault({}),
+  online: z.object({
+    enabled: z.boolean().default(true),
+    /** Branch whose stock the storefront shows and whose orders it creates; null = first active branch. */
+    branchId: z.number().int().nullable().default(null),
+    hotline: z.string().max(30).default(''),
+    intro: z.string().max(1000).default(''),
+  }).prefault({}),
   tax: z.object({
     mode: z.enum(['household', 'company']).default('household'),
     defaultVatRate: z.number().min(0).max(100).default(8),

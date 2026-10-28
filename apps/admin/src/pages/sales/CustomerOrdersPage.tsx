@@ -14,13 +14,13 @@ import { CheckboxFilter, DataTable, DateRangeFilter, FilterSection, FilterSideba
 
 type Row = { id: number; code: string; createdAt: string; customerName: string; total: number; deposit: number; depositUsed: number; status: string; note: string };
 type Detail = Row & { lines: { id: number; productCode: string; productName: string; unit: string; qty: number; price: number; deliveredQty: number }[]; invoices: { id: number; code: string; total: number; status: string }[] };
-const STATUSES = [{ value: 'draft', label: 'Phiếu tạm' }, { value: 'confirmed', label: 'Đã xác nhận' }, { value: 'partial', label: 'Giao một phần' }, { value: 'completed', label: 'Hoàn thành' }, { value: 'cancelled', label: 'Đã hủy' }];
+const STATUSES = [{ value: 'pending', label: 'Chờ xác nhận' }, { value: 'draft', label: 'Phiếu tạm' }, { value: 'confirmed', label: 'Đã xác nhận' }, { value: 'partial', label: 'Giao một phần' }, { value: 'completed', label: 'Hoàn thành' }, { value: 'cancelled', label: 'Đã hủy' }];
 
 export function CustomerOrdersPage() {
   const { can } = useAuth();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { state, set } = useListState({ date: 'thisMonth', status: ['draft', 'confirmed', 'partial'] as string[] });
+  const { state, set } = useListState({ date: 'thisMonth', status: ['pending', 'draft', 'confirmed', 'partial'] as string[] });
   const [deposit, setDeposit] = useState<{ id: number; amount: number; fundId: number | null } | null>(null);
   const range = resolveDateRange(state.date as string);
   const query = { page: state.page, pageSize: state.pageSize, search: state.search, status: state.status as string[], ...range };

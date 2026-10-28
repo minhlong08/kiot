@@ -81,7 +81,7 @@ export async function addDeposit(tx: Tx, ctx: DocCtx, orderId: number, amount: n
 export async function confirmOrder(tx: Tx, ctx: DocCtx, id: number) {
   const o = await tx.customerOrder.findUnique({ where: { id }, include: { lines: true } });
   if (!o || o.branchId !== ctx.branchId) throw notFound('Đơn đặt hàng');
-  await transition(tx, 'customerOrder', id, ['draft'], 'confirmed');
+  await transition(tx, 'customerOrder', id, ['draft', 'pending'], 'confirmed');
   for (const l of o.lines) await adjustCounter(tx, l.productId, o.branchId, 'reserved', l.qty * l.conversion);
   await audit(tx, ctx, { action: 'complete', entity: 'CustomerOrder', entityId: id, entityCode: o.code, summary: `Xác nhận đơn đặt hàng ${o.code}` });
 }
@@ -89,8 +89,8 @@ export async function confirmOrder(tx: Tx, ctx: DocCtx, id: number) {
 export async function cancelOrder(tx: Tx, ctx: DocCtx, id: number) {
   const o = await tx.customerOrder.findUnique({ where: { id }, include: { lines: true } });
   if (!o || o.branchId !== ctx.branchId) throw notFound('Đơn đặt hàng');
-  await transition(tx, 'customerOrder', id, ['draft', 'confirmed', 'partial'], 'cancelled');
-  if (o.status !== 'draft') for (const l of o.lines) await adjustCounter(tx, l.productId, o.branchId, 'reserved', -Math.max(0, l.qty - l.deliveredQty) * l.conversion);
+  await transition(tx, 'customerOrder', id, ['draft', 'pending', 'confirmed', 'partial'], 'cancelled');
+  if (o.status !== 'draft' && o.status !== 'pending') for (const l of o.lines) await adjustCounter(tx, l.productId, o.branchId, 'reserved', -Math.max(0, l.qty - l.deliveredQty) * l.conversion);
   await audit(tx, ctx, { action: 'cancel', entity: 'CustomerOrder', entityId: id, entityCode: o.code, summary: `Hủy đơn đặt hàng ${o.code}${o.deposit - o.depositUsed > 0 ? ` (tiền cọc ${(o.deposit - o.depositUsed).toLocaleString('en-US')} giữ làm công nợ có của khách)` : ''}` });
 }
 
