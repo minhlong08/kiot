@@ -129,3 +129,29 @@ Rulings made during the build and deferred review findings, per milestone.
 - Final: minor (deferred): category create allowed with cashbook.create; settings page shows buttons regardless of permission
 - Final: minor (deferred): decorate() loads all users/categories/funds per call
 - Final: minor (deferred): seed leaves the cash fund negative (no opening balance)
+
+## Milestone 7 — Delivery, online sales, tax
+
+- Task 2: Ruling: pending may skip 'picked' straight to 'delivering' (shop hands parcels over without a pickup scan) — cost if wrong: one entry in NEXT.
+- Task 2: Ruling: return-shipping fees are not posted (only the outbound shop-paid fee on delivered); feePayer 'customer' has no shop-side effect — cost if wrong: partner balance off by return fees until a manual voucher.
+- Task 2: Ruling: cancelling an invoice while the parcel is with the carrier (delivering/failed/returning) → 409 DELIVERY_IN_PROGRESS; reconciled deliveries → 409 DELIVERY_RECONCILED — cost if wrong: an extra click through 'returned'.
+- Task 3: Ruling: when shop-paid fees exceed COD the reconciliation pays the partner (out voucher 'Chi tiền trả đối tác giao hàng'); zero net posts no voucher — cost if wrong: none, ledger still balances.
+- Note: M6 Task 4 ruling was inaccurate — settings.orders already has rounding and requireCustomer (edited on the Orders settings page); whether POS enforces them is unchanged and still deferred to M10.
+- Task 5: Ruling: online sales default enabled (settings.online.enabled true) so the demo storefront works out of the box — cost if wrong: a public page the owner didn't intend; one toggle.
+- Task 5: Ruling: website orders use createdById 0 (no user) and isDelivery true with the delivery address in the note — cost if wrong: order editor shows no creator; address must be copied into the delivery form on conversion.
+- Task 5: Ruling: ensureDefaults (cash categories, channels) now runs on every seed start, not only fresh installs — needed so upgraded DBs get the new system category used by COD reconciliation.
+- Task 6: Ruling: the order confirmation shows in place on /shop/cart instead of a separate /shop/done/$code route — the code isn't a secret but a guessable URL listing order totals is avoided; cost if wrong: one route.
+- Task 7: Ruling: VAT is backed out once per rate (not per line) and invoice-level discounts are spread over lines pro rata before grouping — avoids rounding drift; cost if wrong: ±1đ differences vs a per-line provider.
+- Task 7: Ruling: declaration uses invoices with status completed by sale date (createdAt) in the VN-time quarter, minus completed returns by return date — cost if wrong: a delivery sale completed next quarter is counted in its sale quarter.
+- Task 7: Ruling: per-group VAT bulk update not built — per-product VAT is already on the product form; deferred to M10 — cost if wrong: owner edits VAT product by product.
+- Task 8: Ruling: merged routes/pos ensureChannels and services/channels into one list (pos names kept: store, facebook, zalo, phone, website, marketplace) — two seeders would create diverging channel sets.
+- Task 8: Ruling: COD reconciliation dialog loads at most 100 waybills per partner (API page-size cap) — cost if wrong: a partner with >100 open parcels needs two reconciliations.
+- Task 8: fixed (found by e2e): admin queries used pageSize 200/500/5/1 which the list schema rejects (allowed 15/20/30/50/100).
+- Final: fixed cancelling a delivered carrier COD invoice erased the carrier receivable — 'a delivered carrier waybill with COD cannot be cancelled from the invoice' RED→GREEN, suite 274/274
+- Final: fixed (re-graded Minor→Important: returns cap cash refunds at paid) carrier COD never reached invoice.paid — 'carrier COD counts as paid once delivered…' RED→GREEN, suite 274/274
+- Final: fixed e-invoice provider called inside the sale transaction — 'auto-issue: a failing e-invoice provider never fails the sale' RED→GREEN, suite 274/274
+- Final: minor (deferred): shop rate limiter keyed on socket IP (no trustProxy) and never pruned
+- Final: minor (deferred): shop matches customers by phone including inactive ones; inbox doesn't flag matched vs new customer
+- Final: minor (deferred, for M9 P&L): shop-paid delivery fees are netted into a non-P&L reconciliation voucher — P&L must add deliveryFee ledger rows as expense
+- Final: minor (deferred): loyalty points and totalSpent post at delivery-invoice creation, not on delivery
+- Final: minor (deferred): /api/deliveries builds an IN list of all branch delivery invoice ids
