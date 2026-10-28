@@ -22,6 +22,8 @@ export async function authRoutes(app: FastifyInstance) {
       include: { role: true },
     });
     if (!u || !(await bcrypt.compare(password, u.passwordHash))) {
+      // Recorded for the dashboard's suspicious-login card (never the password itself).
+      await audit(app.prisma, { userId: null, branchId: null, ip: req.ip ?? '' }, { action: 'loginFailed', entity: 'User', entityId: u?.id ?? 0, entityCode: u?.username ?? login.slice(0, 60), summary: `Đăng nhập thất bại: ${u?.username ?? login.slice(0, 60)}` });
       throw new AppError(401, 'INVALID_CREDENTIALS', 'Tên đăng nhập hoặc mật khẩu không đúng');
     }
     if (!u.isActive) throw new AppError(401, 'INACTIVE', 'Tài khoản đã ngừng hoạt động');

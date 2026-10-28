@@ -43,3 +43,25 @@ export function groupFacts<T, F extends keyof T & string>(facts: T[], keyOf: (f:
   }
   return [...map.values()].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0)) as ({ key: string; count: number } & Record<F, number>)[];
 }
+
+export const PERIODS = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'last7days', 'thisMonth', 'lastMonth', 'last30days', 'thisYear'] as const;
+export type PeriodName = (typeof PERIODS)[number];
+export const PERIOD_LABELS: Record<PeriodName, string> = {
+  today: 'Hôm nay', yesterday: 'Hôm qua', thisWeek: 'Tuần này', lastWeek: 'Tuần trước', last7days: '7 ngày qua',
+  thisMonth: 'Tháng này', lastMonth: 'Tháng trước', last30days: '30 ngày qua', thisYear: 'Năm nay',
+};
+
+/** A named period as a UTC range [from, to) of whole Vietnam-time days. */
+export function periodRange(name: PeriodName, now = new Date()) {
+  const l = local(now);
+  const day = Date.UTC(l.getUTCFullYear(), l.getUTCMonth(), l.getUTCDate()) - TZ;
+  const D = 86400_000;
+  const dow = (l.getUTCDay() + 6) % 7;
+  const month = (offset: number) => Date.UTC(l.getUTCFullYear(), l.getUTCMonth() + offset, 1) - TZ;
+  const [from, to] = ({
+    today: [day, day + D], yesterday: [day - D, day], thisWeek: [day - dow * D, day - dow * D + 7 * D], lastWeek: [day - (dow + 7) * D, day - dow * D],
+    last7days: [day - 6 * D, day + D], thisMonth: [month(0), month(1)], lastMonth: [month(-1), month(0)], last30days: [day - 29 * D, day + D],
+    thisYear: [Date.UTC(l.getUTCFullYear(), 0, 1) - TZ, Date.UTC(l.getUTCFullYear() + 1, 0, 1) - TZ],
+  } as Record<PeriodName, [number, number]>)[name];
+  return { from: new Date(from), to: new Date(to) };
+}

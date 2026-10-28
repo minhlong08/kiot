@@ -2,7 +2,7 @@ import { normalizeVi } from '@pd/shared';
 import type { Tx } from '../db';
 
 export type AuditCtx = { userId: number | null; branchId: number | null; ip: string };
-export type AuditAction = 'create' | 'update' | 'delete' | 'cancel' | 'complete' | 'login' | 'logout' | 'settings' | 'import';
+export type AuditAction = 'create' | 'update' | 'delete' | 'cancel' | 'complete' | 'login' | 'loginFailed' | 'logout' | 'settings' | 'import';
 
 export type AuditEntry = {
   action: AuditAction;
