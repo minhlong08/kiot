@@ -55,6 +55,9 @@ export async function payrollRoutes(app: FastifyInstance) {
     const b = z.object({ name: z.string().trim().min(1).max(120), from: DATE, to: DATE }).refine(x => x.from <= x.to, 'Từ ngày phải trước đến ngày').parse(req.body);
     const u = user(req);
     return db.$transaction(async tx => {
+      // Overlapping periods would pay the same shifts and commission twice.
+      const clash = await tx.payrollPeriod.findFirst({ where: { branchId: u.branchId, status: { not: 'cancelled' }, from: { lte: b.to }, to: { gte: b.from } } });
+      if (clash) throw conflict('PERIOD_OVERLAP', `Trùng kỳ với bảng lương ${clash.code} (${clash.from} → ${clash.to})`);
       const p = await tx.payrollPeriod.create({ data: { ...b, code: await nextCode(tx, 'BL'), branchId: u.branchId, createdById: u.id } });
       await generatePaysheets(tx, p.id);
       await audit(tx, req.auditCtx, { action: 'create', entity: 'PayrollPeriod', entityId: p.id, entityCode: p.code, summary: `Tạo bảng lương ${p.name} (${b.from} → ${b.to})` });

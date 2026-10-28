@@ -43,3 +43,26 @@ test('schedule: assign, duplicate → 409, move, delete; copy week copies once',
   // An employee with schedule history is deactivated, not deleted.
   expect((await req('DELETE', `/api/employees/${a.id}`)).json()).toEqual({ deactivated: true });
 });
+
+test('payroll-only users get no ID/birthday/address; other branches are out of reach', async () => {
+  const bcrypt = (await import('bcryptjs')).default;
+  const e = (await req('POST', '/api/employees', { name: 'Có CCCD', branchId, idNumber: '001099000123', birthday: '1999-01-02', address: '1 Hàng Bông' })).json();
+  const role = await t.prisma.role.create({ data: { name: 'Kế toán lương', permissions: { create: [{ key: 'payroll.view' }] } } });
+  await t.prisma.user.create({ data: { username: 'ketoan', fullName: 'K', passwordHash: bcrypt.hashSync('pass123', 4), roleId: role.id, branchAccess: { create: [{ branchId }] } } });
+  const cookie = await t.login('ketoan', 'pass123');
+  const row = (await t.app.inject({ method: 'GET', url: '/api/employees?status=all', headers: { cookie } })).json().items.find((x: { id: number }) => x.id === e.id);
+  expect([row.idNumber, row.birthday, row.address]).toEqual(['', null, '']);
+  const other = await t.prisma.branch.create({ data: { code: 'CN09', name: 'Chi nhánh khác', address: '' } });
+  const far = await t.prisma.employee.create({ data: { code: 'NV999999', name: 'Ở chi nhánh khác', branchId: other.id } });
+  expect((await req('PUT', `/api/employees/${far.id}`, { name: 'Sửa trộm', branchId })).statusCode).toBe(404);
+  expect((await req('DELETE', `/api/employees/${far.id}`)).statusCode).toBe(404);
+});
+
+test('a shift with timesheet rows is deactivated, not deleted', async () => {
+  const e = (await req('POST', '/api/employees', { name: 'Ca bị xóa', branchId })).json();
+  const s = (await req('POST', '/api/work-shifts', { name: 'Ca tạm', start: '09:00', end: '12:00' })).json();
+  const entry = (await req('POST', '/api/schedule', { employeeId: e.id, shiftId: s.id, date: '2026-10-20' })).json();
+  await req('PUT', '/api/timesheets', { employeeId: e.id, shiftId: s.id, date: '2026-10-20', status: 'present' });
+  await req('DELETE', `/api/schedule/${entry.id}`);
+  expect((await req('DELETE', `/api/work-shifts/${s.id}`)).json()).toEqual({ deactivated: true });
+});

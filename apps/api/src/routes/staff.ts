@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
 import { employeeInputSchema, normalizeVi, shiftInputSchema } from '@pd/shared';
 import type { Prisma } from '../db';
-import { requirePermission, user } from '../plugins/auth';
+import { hasPerm, requirePermission, user } from '../plugins/auth';
 import { listParam, parseList } from '../lib/list';
 import { sendXlsx } from '../lib/excel';
 import { conflict, notFound } from '../lib/errors';
@@ -30,22 +30,25 @@ export async function staffRoutes(app: FastifyInstance) {
       salaryTemplateName: templates.find(x => x.id === r.salaryTemplateId)?.name ?? null, commissionTableName: tables.find(x => x.id === r.commissionTableId)?.name ?? null,
     }));
   }
-  function where(raw: Record<string, unknown>, branchId: number): Prisma.EmployeeWhereInput {
+  function where(raw: Record<string, unknown>, branchId: number, isAdmin = false): Prisma.EmployeeWhereInput {
     const q = parseList(raw);
     const status = (raw.status as string) ?? 'active';
     return {
-      branchId: raw.branchId === 'all' ? undefined : branchId, ...(status === 'all' ? {} : { isActive: status === 'active' }),
+      branchId: raw.branchId === 'all' && isAdmin ? undefined : branchId, ...(status === 'all' ? {} : { isActive: status === 'active' }),
       ...(q.searchNorm ? { searchText: { contains: q.searchNorm } } : {}), ...(listParam(raw.positions) ? { position: { in: listParam(raw.positions) } } : {}),
     };
   }
   app.get('/api/employees', { preHandler: requirePermission('employees.view', 'payroll.view') }, async req => {
     const q = parseList(req.query);
-    const w = where(req.query as Record<string, unknown>, user(req).branchId);
+    const u = user(req);
+    const w = where(req.query as Record<string, unknown>, u.branchId, u.isAdmin);
     const [rows, total] = await Promise.all([db.employee.findMany({ where: w, orderBy: { code: 'asc' }, skip: q.skip, take: q.take }), db.employee.count({ where: w })]);
-    return { items: await decorate(rows), total };
+    const items = await decorate(rows);
+    // Personal identity data is for HR (employees.view) only, not for payroll clerks.
+    return { items: hasPerm(u, 'employees.view') ? items : items.map(e => ({ ...e, idNumber: '', birthday: null, address: '' })), total };
   });
   app.get('/api/employees/export', { preHandler: requirePermission('employees.export') }, async (req, reply) => {
-    const rows = await decorate(await db.employee.findMany({ where: where(req.query as Record<string, unknown>, user(req).branchId), orderBy: { code: 'asc' } }));
+    const rows = await decorate(await db.employee.findMany({ where: where(req.query as Record<string, unknown>, user(req).branchId, user(req).isAdmin), orderBy: { code: 'asc' } }));
     return sendXlsx(reply, 'nhan-vien.xlsx', [
       { header: 'Mã nhân viên', key: 'code' }, { header: 'Tên nhân viên', key: 'name' }, { header: 'Điện thoại', key: 'phone' }, { header: 'Chức danh', key: 'position' },
       { header: 'Chi nhánh', key: 'branchName' }, { header: 'Tài khoản', key: 'userName' }, { header: 'Mẫu lương', key: 'salaryTemplateName' },
@@ -55,7 +58,8 @@ export async function staffRoutes(app: FastifyInstance) {
     const e = await db.employee.findUnique({ where: { userId: user(req).id } });
     return e ? (await decorate([e]))[0] : null;
   });
-  async function saveEmployee(data: z.infer<typeof employeeInputSchema>, auditCtx: Parameters<typeof audit>[1], id?: number) {
+  async function saveEmployee(data: z.infer<typeof employeeInputSchema>, auditCtx: Parameters<typeof audit>[1], branchId: number, id?: number) {
+    if (id && !(await db.employee.findFirst({ where: { id, branchId } }))) throw notFound('Nhân viên');
     if (data.userId) {
       const linked = await db.employee.findUnique({ where: { userId: data.userId } });
       if (linked && linked.id !== id) throw conflict('USER_LINKED', `Tài khoản đã gắn với nhân viên ${linked.code} - ${linked.name}`);
@@ -70,11 +74,11 @@ export async function staffRoutes(app: FastifyInstance) {
       return (await decorate([e]))[0];
     });
   }
-  app.post('/api/employees', { preHandler: requirePermission('employees.create') }, async req => saveEmployee(employeeInputSchema.parse(req.body), req.auditCtx));
-  app.put('/api/employees/:id', { preHandler: requirePermission('employees.edit') }, async req => saveEmployee(employeeInputSchema.parse(req.body), req.auditCtx, idOf(req)));
+  app.post('/api/employees', { preHandler: requirePermission('employees.create') }, async req => saveEmployee(employeeInputSchema.parse(req.body), req.auditCtx, user(req).branchId));
+  app.put('/api/employees/:id', { preHandler: requirePermission('employees.edit') }, async req => saveEmployee(employeeInputSchema.parse(req.body), req.auditCtx, user(req).branchId, idOf(req)));
   app.delete('/api/employees/:id', { preHandler: requirePermission('employees.delete') }, async req =>
     db.$transaction(async tx => {
-      const e = await tx.employee.findUnique({ where: { id: idOf(req) } });
+      const e = await tx.employee.findFirst({ where: { id: idOf(req), branchId: user(req).branchId } });
       if (!e) throw notFound('Nhân viên');
       const used = (await tx.scheduleEntry.count({ where: { employeeId: e.id } })) + (await tx.timesheet.count({ where: { employeeId: e.id } })) + (await tx.paysheet.count({ where: { employeeId: e.id } }));
       if (used) {
@@ -104,7 +108,7 @@ export async function staffRoutes(app: FastifyInstance) {
   app.delete('/api/work-shifts/:id', { preHandler: requirePermission('employees.edit') }, async req => {
     const s = await db.workShift.findFirst({ where: { id: idOf(req), branchId: user(req).branchId } });
     if (!s) throw notFound('Ca làm việc');
-    if (await db.scheduleEntry.count({ where: { shiftId: s.id } })) { await db.workShift.update({ where: { id: s.id }, data: { isActive: false } }); return { deactivated: true }; }
+    if ((await db.scheduleEntry.count({ where: { shiftId: s.id } })) + (await db.timesheet.count({ where: { shiftId: s.id } }))) { await db.workShift.update({ where: { id: s.id }, data: { isActive: false } }); return { deactivated: true }; }
     await db.workShift.delete({ where: { id: s.id } });
     return { deleted: true };
   });

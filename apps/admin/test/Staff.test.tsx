@@ -54,3 +54,16 @@ test('editing a timesheet cell posts the times as instants and the status', asyn
     employeeId: 10, shiftId: 3, date: '2026-10-26', status: 'present', checkIn: '2026-10-26T01:10:00.000Z', checkOut: '2026-10-26T07:30:00.000Z', note: '',
   }));
 });
+
+test('staff without employees.view see and edit-free view their own timesheet', async () => {
+  apiMock.mockImplementation((path: string) => {
+    if (path === '/employees') return Promise.reject(new Error('Không có quyền'));
+    if (path === '/employees/me') return Promise.resolve({ id: 10, code: 'NV000001', name: 'Lê Thị Bình' });
+    if (path === '/work-shifts') return Promise.resolve(shifts);
+    if (path === '/timesheets') return Promise.resolve({ items: [{ id: 1, employeeId: 10, shiftId: 3, date: '2026-10-26', checkIn: null, checkOut: null, status: 'scheduled', late: 0, early: 0, overtime: 0, worked: 0, manual: false, note: '' }] });
+    return Promise.resolve({});
+  });
+  renderWithQuery(<TimesheetsPage initialMonday="2026-10-26" />);
+  expect(await screen.findByText('Lê Thị Bình')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Chấm công' })).toBeInTheDocument();
+});

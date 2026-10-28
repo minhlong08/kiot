@@ -1,4 +1,5 @@
-export type NavItem = { labelKey: string; to: string; perm: string };
+/** `perm` omitted: visible to every signed-in user (the page limits what they see). */
+export type NavItem = { labelKey: string; to: string; perm?: string };
 export type NavColumn = { titleKey: string; items: NavItem[] };
 export type NavSection = { key: string; labelKey: string; to?: string; perm?: string; columns?: NavColumn[] };
 
@@ -65,7 +66,7 @@ export const NAV: NavSection[] = [
       { titleKey: 'nav.g.staff', items: [
         { labelKey: 'nav.employees', to: '/employees', perm: 'employees.view' },
         { labelKey: 'nav.workSchedule', to: '/work-schedule', perm: 'employees.view' },
-        { labelKey: 'nav.timesheets', to: '/timesheets', perm: 'employees.view' },
+        { labelKey: 'nav.timesheets', to: '/timesheets' },
         { labelKey: 'nav.staffSettings', to: '/staff-settings', perm: 'employees.edit' },
       ] },
       { titleKey: 'nav.g.payroll', items: [

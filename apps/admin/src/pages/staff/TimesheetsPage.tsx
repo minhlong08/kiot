@@ -21,9 +21,10 @@ export function TimesheetsPage({ initialMonday }: { initialMonday?: string } = {
   const [monday, setMonday] = useState(initialMonday ?? mondayOf());
   const days = weekDates(monday);
   const [edit, setEdit] = useState<(Row & { inT: string; outT: string }) | null>(null);
-  const emps = useQuery({ queryKey: ['employees', 'active'], queryFn: () => api<{ items: { id: number; code: string; name: string }[] }>('/employees', { query: { pageSize: 100 } }) });
+  // Without employees.view the API returns only the user's own rows; the list then falls back to "me".
+  const emps = useQuery({ queryKey: ['employees', 'active'], enabled: can('employees.view'), queryFn: () => api<{ items: { id: number; code: string; name: string }[] }>('/employees', { query: { pageSize: 100 } }).catch(() => ({ items: [] })) });
   const shifts = useQuery({ queryKey: ['work-shifts'], queryFn: () => api<Shift[]>('/work-shifts') });
-  const me = useQuery({ queryKey: ['employees', 'me'], queryFn: () => api<{ id: number } | null>('/employees/me') });
+  const me = useQuery({ queryKey: ['employees', 'me'], queryFn: () => api<{ id: number; code: string; name: string } | null>('/employees/me') });
   const ts = useQuery({ queryKey: ['timesheets', monday], queryFn: () => api<{ items: Row[] }>('/timesheets', { query: { from: days[0], to: days[6] } }) });
   const shiftOf = (id: number) => shifts.data?.find(s => s.id === id);
   const refresh = () => qc.invalidateQueries({ queryKey: ['timesheets'] });
@@ -41,7 +42,8 @@ export function TimesheetsPage({ initialMonday }: { initialMonday?: string } = {
   async function punch() {
     try { const r = await api<Row>('/timesheets/punch', { body: {} }); toast(r.checkOut ? `Đã chấm công ra lúc ${localTime(r.checkOut)}` : `Đã chấm công vào lúc ${localTime(r.checkIn)}`); refresh(); } catch (e) { toastError(e); }
   }
-  const visible = (emps.data?.items ?? []).filter(e => ts.data?.items.some(r => r.employeeId === e.id));
+  const people = emps.data?.items.length ? emps.data.items : me.data ? [me.data] : [];
+  const visible = people.filter(e => ts.data?.items.some(r => r.employeeId === e.id));
   return (
     <div className="p-4">
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -76,7 +78,7 @@ export function TimesheetsPage({ initialMonday }: { initialMonday?: string } = {
           </tbody>
         </table>
       </div>
-      <Modal open={!!edit} size="sm" title={`Chấm công ${edit ? `${emps.data?.items.find(e => e.id === edit.employeeId)?.name ?? ''} · ${shortDate(edit.date)}` : ''}`} onClose={() => setEdit(null)}
+      <Modal open={!!edit} size="sm" title={`Chấm công ${edit ? `${people.find(e => e.id === edit.employeeId)?.name ?? ''} · ${shortDate(edit.date)}` : ''}`} onClose={() => setEdit(null)}
         footer={<button type="button" className="btn-primary" onClick={save}>Lưu</button>}>
         {edit && <div className="space-y-3">
           <p className="text-sm text-slate-500">{shiftOf(edit.shiftId)?.name} {shiftOf(edit.shiftId)?.start}–{shiftOf(edit.shiftId)?.end}</p>

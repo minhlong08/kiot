@@ -68,3 +68,7 @@ test('concurrent full payments never exceed the total; payment is a "Chi lương
   expect([v.kind, v.amount, v.counterpartyType, cat.name]).toEqual(['out', sheet.total, 'employee', 'Chi lương']);
   expect((await req('POST', `/api/payroll-periods/${periodId}/cancel`, {})).json().error.code).toBe('PERIOD_PAID');
 });
+
+test('a second period overlapping an existing one → 409', async () => {
+  expect((await req('POST', '/api/payroll-periods', { name: 'Trùng kỳ', from: day2, to })).json().error.code).toBe('PERIOD_OVERLAP');
+});

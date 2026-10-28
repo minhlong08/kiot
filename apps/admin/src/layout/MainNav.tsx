@@ -11,7 +11,7 @@ type Props = {
 };
 
 function visibleColumns(s: NavSection, can: Props['can']) {
-  return (s.columns ?? []).map(c => ({ ...c, items: c.items.filter(i => can(i.perm)) })).filter(c => c.items.length);
+  return (s.columns ?? []).map(c => ({ ...c, items: c.items.filter(i => !i.perm || can(i.perm)) })).filter(c => c.items.length);
 }
 
 function isActive(s: NavSection, path: string) {
