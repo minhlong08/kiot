@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { formatDateTime } from '@pd/shared';
+import { formatDateTime, normalizeVi } from '@pd/shared';
 import type { Prisma } from '../generated/prisma/client';
 import { requirePermission } from '../plugins/auth';
 import { dateParam, listParam, parseList } from '../lib/list';
@@ -13,7 +13,7 @@ function whereOf(query: Record<string, unknown>, search?: string): Prisma.AuditL
     ...(actions ? { action: { in: actions } } : {}),
     ...(query.userId ? { userId: Number(query.userId) } : {}),
     ...(from || to ? { createdAt: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } } : {}),
-    ...(search ? { OR: [{ summary: { contains: search } }, { entityCode: { contains: search } }] } : {}),
+    ...(search ? { searchText: { contains: normalizeVi(search) } } : {}),
   };
 }
 

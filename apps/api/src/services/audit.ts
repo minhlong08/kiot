@@ -1,3 +1,4 @@
+import { normalizeVi } from '@pd/shared';
 import type { Tx } from '../db';
 
 export type AuditCtx = { userId: number | null; branchId: number | null; ip: string };
@@ -39,6 +40,7 @@ export async function audit(tx: Tx, ctx: AuditCtx, e: AuditEntry): Promise<void>
       entityId: String(e.entityId),
       entityCode: e.entityCode ?? '',
       summary: e.summary,
+      searchText: normalizeVi(`${e.entityCode ?? ''} ${e.summary}`),
       diff: JSON.stringify(diffObjects(e.before, e.after)),
     },
   });

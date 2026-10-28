@@ -95,6 +95,7 @@ model AuditLog {
   entityId   String
   entityCode String   @default("")
   summary    String
+  searchText String   @default("")
   diff       String   @default("{}")
   ip         String   @default("")
   createdAt  DateTime @default(now())

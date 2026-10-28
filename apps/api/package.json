@@ -8,7 +8,8 @@
     "start": "tsx src/server.ts",
     "db:setup": "prisma migrate deploy && prisma generate && tsx prisma/seed.ts",
     "test": "vitest run",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.5",

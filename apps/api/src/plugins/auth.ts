@@ -57,15 +57,25 @@ export async function loadUser(prisma: PrismaClient, sessionId: string): Promise
     include: { user: { include: { role: { include: { permissions: true } } } } },
   });
   if (!s || s.expiresAt < new Date() || !s.user.isActive) return null;
-  if (Date.now() - s.lastSeenAt.getTime() > 60_000) {
+  const u = s.user;
+  // Access can change mid-session: keep the session on a branch the user may still use, or end it.
+  const allowed = await prisma.branch.findMany({
+    where: { isActive: true, ...(u.role.isAdmin ? {} : { users: { some: { userId: u.id } } }) },
+    select: { id: true }, orderBy: { id: 'asc' },
+  });
+  if (!allowed.length) return null;
+  let branchId = s.branchId;
+  if (!allowed.some(b => b.id === branchId)) {
+    branchId = allowed.find(b => b.id === u.defaultBranchId)?.id ?? allowed[0].id;
+    await prisma.session.update({ where: { id: s.id }, data: { branchId, lastSeenAt: new Date() } });
+  } else if (Date.now() - s.lastSeenAt.getTime() > 60_000) {
     await prisma.session.update({ where: { id: s.id }, data: { lastSeenAt: new Date() } });
   }
-  const u = s.user;
   return {
     id: u.id, username: u.username, fullName: u.fullName, roleId: u.roleId, roleName: u.role.name,
     isAdmin: u.role.isAdmin, permissions: new Set(u.role.permissions.map(p => p.key)),
     maxDiscountPercent: u.role.isAdmin ? 100 : u.role.maxDiscountPercent,
-    branchId: s.branchId, mustChangePassword: u.mustChangePassword, sessionId: s.id,
+    branchId, mustChangePassword: u.mustChangePassword, sessionId: s.id,
   };
 }
 
@@ -85,6 +95,10 @@ export function user(req: FastifyRequest): AuthUser {
   return req.user;
 }
 
+function safeDecode(p: string): string {
+  try { return decodeURIComponent(p); } catch { return p; }
+}
+
 export function registerAuth(app: FastifyInstance) {
   app.decorateRequest('user', null);
   app.decorateRequest('auditCtx', null as unknown as AuditCtx);
@@ -92,7 +106,8 @@ export function registerAuth(app: FastifyInstance) {
     const sid = req.cookies?.[SESSION_COOKIE];
     req.user = sid ? await loadUser(app.prisma, sid) : null;
     req.auditCtx = { userId: req.user?.id ?? null, branchId: req.user?.branchId ?? null, ip: req.ip ?? '' };
-    const path = req.url.split('?')[0];
+    // Decide on the route the router actually matched (it decodes %-escapes); fall back to the decoded path for 404s.
+    const path = req.routeOptions?.url ?? safeDecode(req.url.split('?')[0]);
     if (!path.startsWith('/api/') || PUBLIC.some(r => r.test(path))) return;
     if (!req.user) throw new AppError(401, 'UNAUTHENTICATED', 'Vui lòng đăng nhập');
     if (req.user.mustChangePassword && !DURING_PASSWORD_CHANGE.test(path)) {

@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
 import { ALL_PERMS } from '@pd/shared';
-import { requirePermission } from '../plugins/auth';
+import { requirePermission, type AuthUser } from '../plugins/auth';
+import { AppError } from '../lib/errors';
 import { conflict, notFound } from '../lib/errors';
 import { audit } from '../services/audit';
 
@@ -10,6 +11,13 @@ const roleInput = z.object({
   maxDiscountPercent: z.number().int().min(0).max(100).default(0),
   permissions: z.array(z.string().refine(k => ALL_PERMS.includes(k), 'Quyền không hợp lệ')).default([]),
 });
+
+/** A non-admin may only hand out permissions they hold themselves. */
+function guardGrant(actor: AuthUser, permissions: string[] | undefined) {
+  if (actor.isAdmin || !permissions) return;
+  const extra = permissions.filter(p => !actor.permissions.has(p));
+  if (extra.length) throw new AppError(403, 'FORBIDDEN', `Bạn không thể cấp quyền mà bạn không có: ${extra.join(', ')}`);
+}
 
 const shape = (r: { id: number; name: string; isAdmin: boolean; maxDiscountPercent: number; permissions: { key: string }[]; _count?: { users: number } }) => ({
   id: r.id, name: r.name, isAdmin: r.isAdmin, maxDiscountPercent: r.maxDiscountPercent,
@@ -26,6 +34,7 @@ export async function roleRoutes(app: FastifyInstance) {
 
   app.post('/api/roles', { preHandler: requirePermission('settings.edit') }, async req => {
     const { permissions, ...data } = roleInput.parse(req.body);
+    guardGrant(req.user!, permissions);
     return db.$transaction(async tx => {
       const r = await tx.role.create({ data: { ...data, permissions: { create: permissions.map(key => ({ key })) } }, include: { permissions: true } });
       await audit(tx, req.auditCtx, { action: 'create', entity: 'Role', entityId: r.id, entityCode: r.name, summary: `Tạo vai trò ${r.name}`, after: shape(r) });
@@ -39,6 +48,8 @@ export async function roleRoutes(app: FastifyInstance) {
     return db.$transaction(async tx => {
       const before = await tx.role.findUnique({ where: { id }, include: { permissions: true } });
       if (!before) throw notFound('Vai trò');
+      if (before.isAdmin && !req.user!.isAdmin) throw new AppError(403, 'FORBIDDEN', 'Chỉ quản trị viên mới được sửa vai trò quản trị');
+      guardGrant(req.user!, permissions);
       if (permissions) {
         await tx.rolePermission.deleteMany({ where: { roleId: id } });
         await tx.rolePermission.createMany({ data: permissions.map(key => ({ roleId: id, key })) });
