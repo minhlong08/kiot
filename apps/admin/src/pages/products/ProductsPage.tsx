@@ -14,6 +14,9 @@ import { GroupTreeFilter } from './GroupTreeFilter';
 import { ProductDetail } from './ProductDetail';
 import { useBrands, useGroups } from './useLookups';
 import { useProductDialogs } from './productPageHooks';
+import { ImportDialog } from './ImportDialog';
+import { BarcodeLabels } from './BarcodeLabels';
+import { useSettings } from '../../lib/settings';
 
 export type ProductRow = {
   id: number; code: string; name: string; type: string; price: number; cost?: number; onHand: number; reserved: number; createdAt: string;
@@ -36,7 +39,17 @@ export function ProductsPage() {
   });
   const [selected, setSelected] = useState<(string | number)[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<number[] | null>(null);
-  const hooks = useProductDialogs();
+  const [importOpen, setImportOpen] = useState(false);
+  const [labelIds, setLabelIds] = useState<number[] | null>(null);
+  const settings = useSettings();
+  const hooks = useProductDialogs({
+    openImport: () => setImportOpen(true),
+    printLabels: ids => setLabelIds(ids),
+    elements: <>
+      <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
+      <BarcodeLabels ids={labelIds} onClose={() => setLabelIds(null)} storeName={settings.data?.store.name ?? ''} />
+    </>,
+  });
 
   const created = resolveDateRange(state.created as string);
   const query = {

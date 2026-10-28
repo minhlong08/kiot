@@ -16,6 +16,7 @@ beforeEach(() => {
   apiMock.mockImplementation((path: string) => {
     if (path === '/product-groups') return Promise.resolve([{ id: 3, name: 'Thời trang Nam', parentId: null, productCount: 1 }]);
     if (path === '/brands') return Promise.resolve([]);
+    if (path === '/settings') return Promise.resolve({ store: { name: 'Shop' }, customers: { vndPerPoint: 10000 } });
     if (path === '/products') return Promise.resolve({ items: [product], total: 1, totals: { onHand: 900, reserved: 0 } });
     if (path === '/products/7') return Promise.resolve({ ...product, attributes: [], units: [], comboItems: [], variants: [], images: [], warranties: [], stocks: [{ branchId: 1, branchName: 'CN1', onHand: 5, reserved: 1, incoming: 0, cost: 690_000 }], description: '', note: '' });
     if (path === '/products/7/stock-card') return Promise.resolve({ items: [{ id: 1, createdAt: '2026-10-28T01:00:00Z', docType: 'opening', docCode: 'NA001', qtyChange: 5, unitCost: 690_000, balanceAfter: 5, costAfter: 690_000 }], total: 1 });
