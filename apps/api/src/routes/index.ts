@@ -32,6 +32,7 @@ import { payrollSetupRoutes } from './payrollSetup';
 import { payrollRoutes } from './payroll';
 import { dashboardRoutes } from './dashboard';
 import { reportRoutes } from './reports';
+import { analyticsRoutes } from './analytics';
 import { stockIssueRoutes, stockTakeRoutes, transferRoutes } from './stockDocs';
 
-export const routes: RoutePlugin[] = [authRoutes, branchRoutes, roleRoutes, userRoutes, settingsRoutes, auditLogRoutes, catalogRoutes, productRoutes, stockTakeRoutes, stockIssueRoutes, transferRoutes, priceBookRoutes, fileRoutes, supplierRoutes, purchaseOrderRoutes, receiptRoutes, purchaseReturnRoutes, incomingInvoiceRoutes, servicePurchaseRoutes, customerRoutes, promotionRoutes, messagingRoutes, invoiceRoutes, returnRoutes, customerOrderRoutes, posRoutes, cashbookRoutes, deliveryPartnerRoutes, deliveryRoutes, codReconciliationRoutes, onlineRoutes, shopRoutes, taxRoutes, staffRoutes, timesheetRoutes, payrollSetupRoutes, payrollRoutes, dashboardRoutes, reportRoutes];
+export const routes: RoutePlugin[] = [authRoutes, branchRoutes, roleRoutes, userRoutes, settingsRoutes, auditLogRoutes, catalogRoutes, productRoutes, stockTakeRoutes, stockIssueRoutes, transferRoutes, priceBookRoutes, fileRoutes, supplierRoutes, purchaseOrderRoutes, receiptRoutes, purchaseReturnRoutes, incomingInvoiceRoutes, servicePurchaseRoutes, customerRoutes, promotionRoutes, messagingRoutes, invoiceRoutes, returnRoutes, customerOrderRoutes, posRoutes, cashbookRoutes, deliveryPartnerRoutes, deliveryRoutes, codReconciliationRoutes, onlineRoutes, shopRoutes, taxRoutes, staffRoutes, timesheetRoutes, payrollSetupRoutes, payrollRoutes, dashboardRoutes, reportRoutes, analyticsRoutes];

@@ -1,5 +1,6 @@
 import type { FC } from 'react';
 import { ReportPage, type ReportDef } from './ReportPage';
+import { AnalyticsPage } from './AnalyticsPage';
 
 const R = (title: string, reports: ReportDef[]) => () => <ReportPage title={title} reports={reports} />;
 
@@ -20,5 +21,9 @@ export const REPORT_PAGES: Record<string, FC> = {
   '/reports/suppliers': R('Báo cáo nhà cung cấp', [{ name: 'suppliers-purchases', label: 'Nhập hàng', params: ['range'] }, { name: 'suppliers-debt', label: 'Công nợ', params: ['range'] }]),
   '/reports/staff': R('Báo cáo nhân viên', [{ name: 'staff-sales', label: 'Bán hàng', params: ['range', 'role'] }, { name: 'staff-payroll', label: 'Lương', params: ['range'] }]),
   '/reports/channels': R('Báo cáo kênh bán hàng', [{ name: 'channels', label: 'Kênh bán', params: ['range'] }]),
+  '/analytics/business': () => <AnalyticsPage name="business" />,
+  '/analytics/products': () => <AnalyticsPage name="products" />,
+  '/analytics/customers': () => <AnalyticsPage name="customers" />,
+  '/analytics/efficiency': () => <AnalyticsPage name="efficiency" />,
   '/reports/finance': R('Báo cáo tài chính', [{ name: 'finance-pnl', label: 'Lãi lỗ', params: ['year'] }]),
 };
