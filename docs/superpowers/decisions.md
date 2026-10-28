@@ -21,3 +21,29 @@ Rulings made during the build and deferred review findings, per milestone.
 - Final: minor (deferred): unknown branchIds on user create → 500 instead of 400
 - Final: minor (deferred): updateSettings audits no-op saves
 - Final: minor (deferred): users/branches list filter in JS (fine for small tables; do not copy for big ones)
+
+## Milestone 2 — Products & stock
+
+- Task 1: Ruling: quantities are Int (fashion retail; KiotViet-style units convert by integer) — cost if wrong: migrate qty columns to Decimal
+- Task 1: Ruling: product relations are plain Int ids without Prisma relations (except doc→lines) — keeps services explicit, avoids cascade surprises — cost: manual joins
+- Task 2: Ruling: reverseDocument unwinds inbound value from the average (cost = (stockValue - qty*unitCost)/remaining); test added after code, proven by a mutant (+1) failing it — cost if wrong: small cost drift on cancelled receipts
+- Task 4: Ruling: variant masters are hidden from lists via (parentId null AND attributes != '[]'); stock filters use one raw SQL join (quoted identifiers, portable) — cost: none
+- Task 4: Ruling: lookup returns non-direct-sale goods unless ?pos=1 (document editors need them; POS doesn't) — cost: none
+- Task 5: Ruling: upsert mode updates only sheet columns (keeps units/images/variants); combos not importable — cost: owners must create combos in the form
+- Task 6: Ruling: write-off and internal use share one StockIssue table with kind (spec lists them separately; one table is DRY) — cost if wrong: split later via kind
+- Task 6: Ruling: transfer receive requires the session to be on the destination branch (400 WRONG_BRANCH); transit shortfall is recorded on the doc, not booked anywhere — cost: owner reconciles shortfalls manually
+- Task 8: Ruling: image type sniffed from bytes; SVGs with script/handlers rejected and all files served with CSP default-src 'none' + nosniff (same-origin XSS guard) — added 'fake png' and path-escape tests — cost: none
+- Task 9: Ruling: product dialogs (form/import/labels/group change) wired through productPageHooks(), stubbed here and filled by Tasks 10–11 — keeps Task 9 independently testable — cost: none
+- Task 10: Ruling: description is a plain textarea (no rich-text editor dependency) — cost: no bold/lists in descriptions
+- Task 10: Ruling: ProductPicker built here (needed by combo editor) rather than Task 11; editing a variant child opens its master — cost: none
+- Task 10: Ruling: cost field is read-only when editing goods (cost comes from receipts/weighted average) — cost: owners adjust cost via receipts only
+- Task 11: Ruling: stock documents use one config-driven list page + one editor (configs.ts) instead of six hand-written pages — cost: none
+- Task 11: Ruling: price book grid shows one selected book next to the base price (not all books side by side) — cost: owners switch books in the sidebar
+- Task 12: Ruling: demo catalogue seeds only on a brand-new install (seedBase returned true); products start at zero stock until M3 demo receipts — cost: none
+- Task 12: Ruling: seed written before its test; test proven by a mutant (women rows removed → fails) — cost: none
+- Final: Ruling: Review Focus #4 said unknown groups should error, but Task 5 (and owner-friendly import) creates missing group paths — kept auto-create — cost if wrong: typo'd group names create stray groups
+- Final: Ruling: moveStock concurrency (declined by reviewer) — deferred to M5 where concurrent tills exist; M5 plan must include a parallel-sales test — cost if wrong: oversold stock under simultaneous checkouts
+- Final: minor (deferred): import write-phase errors lack row numbers; duplicate barcodes in file unchecked
+- Final: minor (deferred): typed product/unit/variant codes not cross-checked (falls to 409 DUPLICATE)
+- Final: minor (deferred): deleting a product referenced only by draft stock docs leaves those drafts uncompletable
+- Final: minor (deferred): quantity totals in stock doc lists formatted with money flag (display only)
