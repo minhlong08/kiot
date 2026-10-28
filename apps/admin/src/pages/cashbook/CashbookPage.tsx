@@ -48,8 +48,8 @@ export function CashbookPage() {
         {TABS.map(t => <button key={t.key} type="button" onClick={() => set({ tab: t.key, fundIds: [] })} className={clsx('-mb-px border-b-2 px-4 py-2 text-sm font-medium', state.tab === t.key ? 'border-brand-700 text-brand-700' : 'border-transparent text-slate-500')}>{t.label}</button>)}
       </div>
       <div data-testid="cash-summary" className="grid grid-cols-2 gap-2 bg-white px-4 py-3 text-sm md:grid-cols-4">
-        {([['Quỹ đầu kỳ', s?.opening], ['Tổng thu', s?.in], ['Tổng chi', s?.out], ['Tồn quỹ', s?.closing]] as const).map(([label, v], i) => (
-          <div key={label} className="rounded-lg bg-slate-50 p-3"><div className="text-xs text-slate-500">{label}</div><div className={clsx('text-lg font-semibold tabular-nums', i === 1 && 'text-emerald-700', i === 2 && 'text-rose-700')}>{i === 2 && v ? '-' : ''}{formatVnd(v ?? 0)}</div></div>
+        {([['Quỹ đầu kỳ', s?.opening, 'opening'], ['Tổng thu', s?.in, 'in'], ['Tổng chi', s?.out, 'out'], ['Tồn quỹ', s?.closing, 'closing']] as const).map(([label, v, key], i) => (
+          <div key={label} className="rounded-lg bg-slate-50 p-3"><div className="text-xs text-slate-500">{label}</div><div data-testid={`cash-${key}`} className={clsx('text-lg font-semibold tabular-nums', i === 1 && 'text-emerald-700', i === 2 && 'text-rose-700')}>{i === 2 && v ? '-' : ''}{formatVnd(v ?? 0)}</div></div>
         ))}
       </div>
       <ListPage

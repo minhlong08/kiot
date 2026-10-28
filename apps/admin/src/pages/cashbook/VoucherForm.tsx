@@ -23,10 +23,11 @@ export function VoucherForm({ kind, defaultFundType, onClose }: { kind: Kind | n
   const [supplier, setSupplier] = useState<PickedSupplier | null>(null);
   useEffect(() => {
     if (!kind) return;
-    const fund = funds.data?.find(x => x.type === (defaultFundType === 'all' ? 'cash' : defaultFundType)) ?? funds.data?.[0];
-    setF({ fundId: fund?.id ?? 0, categoryId: 0, amount: 0, party: 'other', name: '', employeeId: 0, note: '', postToDebt: false, date: '' });
+    setF({ fundId: 0, categoryId: 0, amount: 0, party: 'other', name: '', employeeId: 0, note: '', postToDebt: false, date: '' });
     setCustomer(null); setSupplier(null);
-  }, [kind, funds.data, defaultFundType]);
+  }, [kind]);
+  // Until a fund is chosen, use the first fund of the open tab's type (a refetch of the fund list never resets the form).
+  const fundId = f.fundId || (funds.data?.find(x => x.type === (defaultFundType === 'all' ? 'cash' : defaultFundType)) ?? funds.data?.[0])?.id || 0;
   const cats = (categories.data ?? []).filter(c => c.kind === kind && c.name !== 'Chuyển quỹ');
   const debt = f.party === 'customer' ? customer?.debt : f.party === 'supplier' ? supplier?.debt : undefined;
 
@@ -35,7 +36,7 @@ export function VoucherForm({ kind, defaultFundType, onClose }: { kind: Kind | n
       const counterpartyId = f.party === 'customer' ? customer?.id : f.party === 'supplier' ? supplier?.id : f.party === 'employee' ? f.employeeId || null : null;
       const counterpartyName = f.party === 'employee' ? users.data?.items.find(u => u.id === f.employeeId)?.fullName ?? '' : f.name;
       const v = await api<{ code: string }>('/cash-vouchers', { body: {
-        kind, fundId: f.fundId, amount: f.amount, categoryId: f.categoryId, counterpartyType: f.party, counterpartyId: counterpartyId ?? null, counterpartyName,
+        kind, fundId, amount: f.amount, categoryId: f.categoryId, counterpartyType: f.party, counterpartyId: counterpartyId ?? null, counterpartyName,
         note: f.note, postToDebt: f.postToDebt && (f.party === 'customer' || f.party === 'supplier'), ...(f.date ? { at: new Date(`${f.date}T12:00:00+07:00`).toISOString() } : {}),
       } });
       await Promise.all(['cash-vouchers', 'cash-funds', 'customers', 'suppliers'].map(k => qc.invalidateQueries({ queryKey: [k] })));
@@ -46,9 +47,9 @@ export function VoucherForm({ kind, defaultFundType, onClose }: { kind: Kind | n
   const label = kind === 'in' ? 'thu' : 'chi';
   return (
     <Modal open={!!kind} title={kind === 'in' ? 'Lập phiếu thu' : 'Lập phiếu chi'} onClose={onClose}
-      footer={<><button type="button" className="btn" onClick={onClose}>Bỏ qua</button><button type="button" className="btn-primary" disabled={!f.amount || !f.categoryId || !f.fundId} onClick={save}>Lưu</button></>}>
+      footer={<><button type="button" className="btn" onClick={onClose}>Bỏ qua</button><button type="button" className="btn-primary" disabled={!f.amount || !f.categoryId || !fundId} onClick={save}>Lưu</button></>}>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Quỹ"><select className="input" value={f.fundId} onChange={e => setF({ ...f, fundId: Number(e.target.value) })}>{funds.data?.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+        <Field label="Quỹ"><select className="input" value={fundId} onChange={e => setF({ ...f, fundId: Number(e.target.value) })}>{funds.data?.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
         <Field label={`Loại ${label}`}>
           <select className="input" aria-label={`Loại ${label}`} value={f.categoryId} onChange={e => setF({ ...f, categoryId: Number(e.target.value) })}>
             <option value={0}>Chọn loại {label}</option>{cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -80,10 +81,13 @@ export function TransferForm({ open, onClose }: { open: boolean; onClose: () => 
   const qc = useQueryClient();
   const funds = useFunds();
   const [f, setF] = useState({ from: 0, to: 0, amount: 0, note: '' });
-  useEffect(() => { if (open && funds.data) setF({ from: funds.data.find(x => x.type === 'cash')?.id ?? 0, to: funds.data.find(x => x.type !== 'cash')?.id ?? 0, amount: 0, note: '' }); }, [open, funds.data]);
+  useEffect(() => { if (open) setF({ from: 0, to: 0, amount: 0, note: '' }); }, [open]);
+  // Unchosen ends fall back to the first cash fund / first non-cash fund, so the form never posts an unset id.
+  const from = f.from || funds.data?.find(x => x.type === 'cash')?.id || 0;
+  const to = f.to || funds.data?.find(x => x.id !== from && x.type !== 'cash')?.id || funds.data?.find(x => x.id !== from)?.id || 0;
   async function save() {
     try {
-      await api('/cash-vouchers/transfer', { body: { fromFundId: f.from, toFundId: f.to, amount: f.amount, note: f.note } });
+      await api('/cash-vouchers/transfer', { body: { fromFundId: from, toFundId: to, amount: f.amount, note: f.note } });
       await qc.invalidateQueries({ queryKey: ['cash-vouchers'] });
       await qc.invalidateQueries({ queryKey: ['cash-funds'] });
       toast('Đã chuyển quỹ');
@@ -91,10 +95,10 @@ export function TransferForm({ open, onClose }: { open: boolean; onClose: () => 
     } catch (e) { toastError(e); }
   }
   return (
-    <Modal open={open} size="sm" title="Chuyển quỹ" onClose={onClose} footer={<button type="button" className="btn-primary" disabled={!f.amount || f.from === f.to} onClick={save}>Lưu</button>}>
+    <Modal open={open} size="sm" title="Chuyển quỹ" onClose={onClose} footer={<button type="button" className="btn-primary" disabled={!f.amount || !from || !to || from === to} onClick={save}>Lưu</button>}>
       <div className="space-y-3">
-        <Field label="Từ quỹ"><select className="input" value={f.from} onChange={e => setF({ ...f, from: Number(e.target.value) })}>{funds.data?.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
-        <Field label="Đến quỹ"><select className="input" value={f.to} onChange={e => setF({ ...f, to: Number(e.target.value) })}>{funds.data?.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+        <Field label="Từ quỹ"><select className="input" value={from} onChange={e => setF({ ...f, from: Number(e.target.value) })}>{funds.data?.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+        <Field label="Đến quỹ"><select className="input" value={to} onChange={e => setF({ ...f, to: Number(e.target.value) })}>{funds.data?.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
         <Field label="Số tiền"><MoneyInput value={f.amount} onChange={amount => setF({ ...f, amount })} aria-label="Số tiền chuyển" /></Field>
         <Field label="Ghi chú"><input className="input" value={f.note} onChange={e => setF({ ...f, note: e.target.value })} /></Field>
       </div>
