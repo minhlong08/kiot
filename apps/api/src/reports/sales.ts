@@ -1,8 +1,7 @@
 import { WEEKDAY_LABELS, bucketKey, groupFacts } from '@pd/shared';
-import { allFacts, type Fact } from '../services/reportFacts';
-import { REPORTS, margin, register, totalsOf, type Column, type ReportCtx } from './types';
+import type { Fact } from '../services/reportFacts';
+import { REPORTS, factsFor, margin, register, totalsOf, type Column, type ReportCtx } from './types';
 
-const range = (c: ReportCtx) => ({ from: c.from, to: c.to, branchId: c.branchId });
 /** Revenue/returns/net/cost/profit of a group of facts. */
 function money(facts: Fact[]) {
   const revenue = facts.filter(f => f.kind === 'sale').reduce((s, f) => s + f.revenue, 0);
@@ -16,13 +15,13 @@ export const MONEY_COLUMNS: Column[] = [
 ];
 function by<T extends string | number>(facts: Fact[], keyOf: (f: Fact) => T) {
   const m = new Map<T, Fact[]>();
-  for (const f of facts) { const k = keyOf(f); m.set(k, [...(m.get(k) ?? []), f]); }
+  for (const f of facts) { const k = keyOf(f); const xs = m.get(k); if (xs) xs.push(f); else m.set(k, [f]); }
   return m;
 }
 
 register('sales-by-time', async c => {
   const unit = (['day', 'hour', 'weekday', 'month'].includes(String(c.q.by)) ? c.q.by : 'day') as 'day' | 'hour' | 'weekday' | 'month';
-  const groups = by(await allFacts(c.db, range(c)), f => bucketKey(f.at, unit));
+  const groups = by(await factsFor(c), f => bucketKey(f.at, unit));
   const label = (k: string) => (unit === 'hour' ? `${k}h` : unit === 'weekday' ? WEEKDAY_LABELS[k] : unit === 'day' ? `${k.slice(8, 10)}/${k.slice(5, 7)}/${k.slice(0, 4)}` : `${k.slice(5, 7)}/${k.slice(0, 4)}`);
   const rows = [...groups.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([key, fs]) => ({ key, label: label(key), ...money(fs) }));
   const columns: Column[] = [{ key: 'label', label: 'Thời gian' }, ...MONEY_COLUMNS];
@@ -30,7 +29,7 @@ register('sales-by-time', async c => {
 });
 
 register('sales-profit', async c => {
-  const facts = (await allFacts(c.db, range(c))).filter(f => f.kind === 'sale');
+  const facts = (await factsFor(c)).filter(f => f.kind === 'sale');
   const groups = by(facts, f => f.docId);
   const customers = await c.db.customer.findMany({ where: { id: { in: facts.map(f => f.customerId).filter((x): x is number => !!x) } }, select: { id: true, name: true } });
   const rows = [...groups.values()].map(fs => {
@@ -63,7 +62,7 @@ register('sales-returns', async c => {
 });
 
 async function grouped(c: ReportCtx, title: string, keyLabel: string, keyOf: (f: Fact) => number | string | null, nameOf: (keys: (number | string)[]) => Promise<(k: number | string) => string>) {
-  const facts = (await allFacts(c.db, range(c))).filter(f => keyOf(f) !== null);
+  const facts = (await factsFor(c)).filter(f => keyOf(f) !== null);
   const groups = by(facts, f => keyOf(f)!);
   const name = await nameOf([...groups.keys()]);
   const rows: (Record<string, unknown> & ReturnType<typeof money>)[] = [...groups.entries()].map(([k, fs]) => ({ key: k, [keyLabel]: name(k), ...money(fs) })).sort((a, b) => b.net - a.net);
@@ -91,7 +90,7 @@ register('orders-by-product', async c => {
   const lines = await c.db.customerOrderLine.findMany({ where: { order: { createdAt: { gte: c.from, lt: c.to }, status: { notIn: ['cancelled', 'draft'] }, ...(c.branchId ? { branchId: c.branchId } : {}) } } });
   const ps = await c.db.product.findMany({ where: { id: { in: lines.map(l => l.productId) } }, select: { id: true, code: true, name: true } });
   const byProduct = new Map<number, typeof lines>();
-  for (const l of lines) byProduct.set(l.productId, [...(byProduct.get(l.productId) ?? []), l]);
+  for (const l of lines) { const xs = byProduct.get(l.productId); if (xs) xs.push(l); else byProduct.set(l.productId, [l]); }
   const rows = [...byProduct.entries()].map(([pid, xs]) => {
     const ordered = xs.reduce((s, l) => s + l.qty, 0), delivered = xs.reduce((s, l) => s + l.deliveredQty, 0);
     return { code: ps.find(p => p.id === pid)?.code, name: ps.find(p => p.id === pid)?.name, ordered, delivered, remaining: ordered - delivered, value: xs.reduce((s, l) => s + l.qty * l.price - l.discount, 0) };
@@ -101,7 +100,7 @@ register('orders-by-product', async c => {
 });
 
 register('orders-by-transaction', async c => {
-  const orders = await c.db.customerOrder.findMany({ where: { createdAt: { gte: c.from, lt: c.to }, status: { not: 'draft' }, ...(c.branchId ? { branchId: c.branchId } : {}) }, orderBy: { createdAt: 'desc' } });
+  const orders = await c.db.customerOrder.findMany({ where: { createdAt: { gte: c.from, lt: c.to }, status: { notIn: ['draft', 'cancelled'] }, ...(c.branchId ? { branchId: c.branchId } : {}) }, orderBy: { createdAt: 'desc' } });
   const cs = await c.db.customer.findMany({ where: { id: { in: orders.map(o => o.customerId).filter((x): x is number => !!x) } }, select: { id: true, name: true } });
   const STATUS: Record<string, string> = { pending: 'Chờ xác nhận', confirmed: 'Đã xác nhận', partial: 'Giao một phần', completed: 'Hoàn thành', cancelled: 'Đã hủy' };
   const rows = orders.map(o => ({ code: o.code, at: o.createdAt, customer: cs.find(x => x.id === o.customerId)?.name ?? 'Khách lẻ', channel: o.channel, total: o.total, deposit: o.deposit, status: STATUS[o.status] ?? o.status }));

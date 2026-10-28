@@ -21,7 +21,10 @@ export async function reportRoutes(app: FastifyInstance) {
     const now = new Date();
     const from = dateParam(q.from) ?? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) - 7 * 3600_000);
     const to = dateParam(q.to) ?? now;
-    const branchId = q.branchId === 'all' && u.isAdmin ? null : u.branchId;
+    // Admins: all branches or any one; others: a branch they have access to, else their session branch.
+    const asked = Number(q.branchId);
+    const allowed = Number.isInteger(asked) && asked > 0 && (u.isAdmin || !!(await db.userBranch.findFirst({ where: { userId: u.id, branchId: asked } })));
+    const branchId = q.branchId === 'all' && u.isAdmin ? null : allowed ? asked : u.branchId;
     return stripCost(await builder({ db, user: u, from, to, branchId, q }), hasPerm(u, 'cost.view'));
   }
   app.get('/api/reports/:name', { preHandler: requirePermission('reports.view') }, async req => build(req));

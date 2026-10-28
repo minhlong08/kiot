@@ -28,3 +28,12 @@ export function stripCost(r: Report, canSeeCost: boolean): Report {
     chart: r.chart && { ...r.chart, series: r.chart.series.filter(s => !/lợi nhuận|giá vốn/i.test(s.name)) },
   };
 }
+
+/** Facts of the report range narrowed by the common filters: sellerIds, channels, groupIds (comma lists). */
+export async function factsFor(c: ReportCtx) {
+  const { allFacts } = await import('../services/reportFacts');
+  const list = (k: string) => (typeof c.q[k] === 'string' && c.q[k] ? String(c.q[k]).split(',').filter(Boolean) : null);
+  const sellers = list('sellerIds')?.map(Number), channels = list('channels'), groups = list('groupIds')?.map(Number);
+  return (await allFacts(c.db, { from: c.from, to: c.to, branchId: c.branchId })).filter(f =>
+    (!sellers || (f.sellerId !== null && sellers.includes(f.sellerId))) && (!channels || channels.includes(f.channel)) && (!groups || (f.groupId !== null && groups.includes(f.groupId))));
+}

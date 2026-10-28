@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
 import { PERIODS, WEEKDAY_LABELS, bucketKey, groupFacts, pctChange, periodRange, sameTimeLastMonth, formatVnd } from '@pd/shared';
 import { requirePermission, user } from '../plugins/auth';
+import { AppError } from '../lib/errors';
 import { allFacts, periodSummary } from '../services/reportFacts';
 
 const periodQuery = z.object({ period: z.enum(PERIODS).default('today') });
@@ -25,7 +26,9 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const { from } = periodRange('today', now);
     const lmNow = sameTimeLastMonth(now);
     const lmFrom = periodRange('today', lmNow).from;
-    const [cur, prev] = await Promise.all([periodSummary(db, { from, to: now, branchId }), periodSummary(db, { from: lmFrom, to: lmNow, branchId })]);
+    // Only sales figures: cost and profit stay behind cost.view (reports), never on the dashboard.
+    const pick = (x: Awaited<ReturnType<typeof periodSummary>>) => ({ revenue: x.revenue, returns: x.returns, net: x.net, invoiceCount: x.invoiceCount });
+    const [cur, prev] = (await Promise.all([periodSummary(db, { from, to: now, branchId }), periodSummary(db, { from: lmFrom, to: lmNow, branchId })])).map(pick);
     return { ...cur, previous: prev, change: { revenue: pctChange(cur.revenue, prev.revenue), returns: pctChange(cur.returns, prev.returns), net: pctChange(cur.net, prev.net) } };
   });
 
@@ -81,16 +84,19 @@ export async function dashboardRoutes(app: FastifyInstance) {
     ].sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, 20).map(a => ({ ...a, ago: relTime(a.at) }));
   });
 
-  /** ≥3 failed logins for one account in 24h; a successful login from an address unseen for that user in the 30 days before. */
-  app.get('/api/dashboard/alerts', pre, async () => {
+  /** Admins only: ≥3 failed logins for one account in 24h; a successful login from an address unseen for that user in the 30 days before. */
+  app.get('/api/dashboard/alerts', pre, async req => {
+    if (!user(req).isAdmin) throw new AppError(403, 'FORBIDDEN', 'Chỉ quản trị viên xem cảnh báo đăng nhập');
     const day = new Date(Date.now() - 86400_000), week = new Date(Date.now() - 7 * 86400_000);
     const failed = await db.auditLog.groupBy({ by: ['entityCode'], where: { action: 'loginFailed', createdAt: { gte: day } }, _count: { _all: true }, _max: { createdAt: true } });
     const alerts: { kind: string; username: string; count?: number; ip?: string; at: Date | null }[] = failed.filter(f => f._count._all >= 3).map(f => ({ kind: 'failedLogins', username: f.entityCode, count: f._count._all, at: f._max.createdAt }));
-    const logins = await db.auditLog.findMany({ where: { action: 'login', createdAt: { gte: week }, ip: { not: '' } }, orderBy: { createdAt: 'desc' }, take: 200 });
-    for (const l of logins) {
-      const seen = await db.auditLog.count({ where: { action: 'login', entityId: l.entityId, ip: l.ip, createdAt: { lt: l.createdAt, gte: new Date(l.createdAt.getTime() - 30 * 86400_000) } } });
-      const any = await db.auditLog.count({ where: { action: 'login', entityId: l.entityId, createdAt: { lt: l.createdAt } } });
-      if (!seen && any && !alerts.some(a => a.kind === 'newIp' && a.username === l.entityCode && a.ip === l.ip)) alerts.push({ kind: 'newIp', username: l.entityCode, ip: l.ip, at: l.createdAt });
+    // One query: logins of the last 37 days, checked in memory.
+    const logins = await db.auditLog.findMany({ where: { action: 'login', createdAt: { gte: new Date(week.getTime() - 30 * 86400_000) } }, orderBy: { createdAt: 'asc' }, select: { entityId: true, entityCode: true, ip: true, createdAt: true } });
+    for (const [i, l] of logins.entries()) {
+      if (l.createdAt < week || !l.ip) continue;
+      const earlier = logins.slice(0, i).filter(x => x.entityId === l.entityId);
+      const seen = earlier.some(x => x.ip === l.ip && x.createdAt.getTime() >= l.createdAt.getTime() - 30 * 86400_000);
+      if (earlier.length && !seen && !alerts.some(a => a.kind === 'newIp' && a.username === l.entityCode && a.ip === l.ip)) alerts.push({ kind: 'newIp', username: l.entityCode, ip: l.ip, at: l.createdAt });
     }
     return alerts.slice(0, 10);
   });

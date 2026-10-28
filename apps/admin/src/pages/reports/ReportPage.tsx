@@ -11,7 +11,7 @@ import { toastError } from '../../components/toast';
 
 type Column = { key: string; label: string; money?: boolean; number?: boolean; percent?: boolean };
 type Report = { title: string; columns: Column[]; rows: Record<string, unknown>[]; totals: Record<string, number>; chart?: { type: 'bar' | 'hbar' | 'line'; labels: string[]; series: { name: string; values: number[] }[] } };
-type Param = 'range' | 'by' | 'date' | 'year' | 'role';
+type Param = 'range' | 'by' | 'date' | 'year' | 'role' | 'staff' | 'channel' | 'group';
 export type ReportDef = { name: string; label: string; params: Param[] };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}T/;
@@ -39,14 +39,25 @@ function printTable(r: Report, subtitle: string) {
 export function ReportPage({ title, reports }: { title: string; reports: ReportDef[] }) {
   const { can, me } = useAuth();
   const today = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
-  const { state, set } = useListState({ report: reports[0].name, date: 'thisMonth', by: 'day', day: today, year: today.slice(0, 4), allBranches: '', role: 'seller' });
-  const [view, setView] = useState<'table' | 'chart'>('table');
+  const { state, set } = useListState({ report: reports[0].name, date: 'thisMonth', by: 'day', day: today, year: today.slice(0, 4), branch: '', role: 'seller', seller: '', channel: '', group: '' });
   const def = reports.find(r => r.name === state.report) ?? reports[0];
+  const has = (p: Param) => def.params.includes(p);
+  const lookups = {
+    channels: useQuery({ queryKey: ['sales-channels'], enabled: has('channel'), queryFn: () => api<{ code: string; name: string }[]>('/sales-channels') }),
+    groups: useQuery({ queryKey: ['product-groups'], enabled: has('group'), queryFn: () => api<{ id: number; name: string }[]>('/product-groups') }),
+    users: useQuery({ queryKey: ['users', 'report-filter'], enabled: has('staff'), queryFn: () => api<{ items: { id: number; fullName: string }[] }>('/users', { query: { pageSize: 100 } }).catch(() => ({ items: [] })) }),
+    branches: useQuery({ queryKey: ['branches'], enabled: !!me?.user.isAdmin, queryFn: () => api<{ items: { id: number; name: string }[] }>('/branches', { query: { pageSize: 100 } }) }),
+  };
+  const branchOptions = me?.user.isAdmin ? lookups.branches.data?.items ?? [] : (me as { branches?: { id: number; name: string }[] } | null)?.branches ?? [];
+  const [view, setView] = useState<'table' | 'chart'>('table');
   const query: Record<string, string | undefined> = {
     ...(def.params.includes('range') ? resolveDateRange(state.date as string) : {}),
     ...(def.params.includes('by') ? { by: state.by as string } : {}), ...(def.params.includes('date') ? { date: state.day as string } : {}),
     ...(def.params.includes('year') ? { year: state.year as string } : {}), ...(def.params.includes('role') ? { role: state.role as string } : {}),
-    ...(state.allBranches ? { branchId: 'all' } : {}),
+    ...(def.params.includes('staff') && state.seller ? { sellerIds: state.seller as string } : {}),
+    ...(def.params.includes('channel') && state.channel ? { channels: state.channel as string } : {}),
+    ...(def.params.includes('group') && state.group ? { groupIds: state.group as string } : {}),
+    ...(state.branch ? { branchId: state.branch as string } : {}),
   };
   const q = useQuery({ queryKey: ['report', def.name, query], queryFn: () => api<Report>(`/reports/${def.name}`, { query }) });
   const r = q.data;
@@ -59,7 +70,12 @@ export function ReportPage({ title, reports }: { title: string; reports: ReportD
         {def.params.includes('year') && <FilterSection title="Năm"><select className="input" aria-label="Năm" value={state.year as string} onChange={e => set({ year: e.target.value })}>{Array.from({ length: 5 }, (_, i) => String(Number(today.slice(0, 4)) - i)).map(y => <option key={y}>{y}</option>)}</select></FilterSection>}
         {def.params.includes('by') && <FilterSection title="Xem theo"><select className="input" aria-label="Xem theo" value={state.by as string} onChange={e => set({ by: e.target.value })}><option value="day">Ngày</option><option value="hour">Giờ trong ngày</option><option value="weekday">Thứ trong tuần</option><option value="month">Tháng</option></select></FilterSection>}
         {def.params.includes('role') && <FilterSection title="Nhân viên"><select className="input" aria-label="Theo" value={state.role as string} onChange={e => set({ role: e.target.value })}><option value="seller">Người bán</option><option value="creator">Người tạo</option></select></FilterSection>}
-        {me?.user.isAdmin && <FilterSection title="Chi nhánh"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!state.allBranches} onChange={e => set({ allBranches: e.target.checked ? '1' : '' })} />Tất cả chi nhánh</label></FilterSection>}
+        {def.params.includes('staff') && <FilterSection title="Nhân viên bán"><select className="input" aria-label="Nhân viên bán" value={state.seller as string} onChange={e => set({ seller: e.target.value })}><option value="">Tất cả</option>{lookups.users.data?.items.map(u => <option key={u.id} value={u.id}>{u.fullName}</option>)}</select></FilterSection>}
+        {def.params.includes('channel') && <FilterSection title="Kênh bán"><select className="input" aria-label="Kênh bán" value={state.channel as string} onChange={e => set({ channel: e.target.value })}><option value="">Tất cả</option>{lookups.channels.data?.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}</select></FilterSection>}
+        {def.params.includes('group') && <FilterSection title="Nhóm hàng"><select className="input" aria-label="Nhóm hàng" value={state.group as string} onChange={e => set({ group: e.target.value })}><option value="">Tất cả</option>{lookups.groups.data?.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select></FilterSection>}
+        {branchOptions.length > 1 && <FilterSection title="Chi nhánh"><select className="input" aria-label="Chi nhánh" value={state.branch as string} onChange={e => set({ branch: e.target.value })}>
+          <option value="">Chi nhánh đang làm việc</option>{me?.user.isAdmin && <option value="all">Tất cả chi nhánh</option>}{branchOptions.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </select></FilterSection>}
       </FilterSidebar>
       <section className="min-w-0 flex-1 space-y-3">
         {reports.length > 1 && (

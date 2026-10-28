@@ -14,16 +14,31 @@ async function accessibleBranches(app: FastifyInstance, userId: number, isAdmin:
   });
 }
 
+const FAIL_WINDOW_MS = 10 * 60_000;
+const FAIL_LIMIT = 20;
+
 export async function authRoutes(app: FastifyInstance) {
+  // Failed attempts per address in a sliding window: slows guessing and caps audit-log writes.
+  const fails = new Map<string, number[]>();
+  const failures = (ip: string) => {
+    const now = Date.now();
+    const recent = (fails.get(ip) ?? []).filter(t => now - t < FAIL_WINDOW_MS);
+    if (recent.length) fails.set(ip, recent); else fails.delete(ip);
+    return recent.length;
+  };
+  const failed = (ip: string) => fails.set(ip, [...(fails.get(ip) ?? []), Date.now()]);
   app.post('/api/auth/login', async (req, reply) => {
     const { login, password } = loginSchema.parse(req.body);
     const u = await app.prisma.user.findFirst({
       where: { OR: [{ username: login }, { phone: login }, { email: login }] },
       include: { role: true },
     });
+    if (failures(req.ip ?? '') > FAIL_LIMIT) throw new AppError(429, 'TOO_MANY_ATTEMPTS', 'Đăng nhập sai quá nhiều lần, vui lòng thử lại sau ít phút');
     if (!u || !(await bcrypt.compare(password, u.passwordHash))) {
-      // Recorded for the dashboard's suspicious-login card (never the password itself).
-      await audit(app.prisma, { userId: null, branchId: null, ip: req.ip ?? '' }, { action: 'loginFailed', entity: 'User', entityId: u?.id ?? 0, entityCode: u?.username ?? login.slice(0, 60), summary: `Đăng nhập thất bại: ${u?.username ?? login.slice(0, 60)}` });
+      failed(req.ip ?? '');
+      // Recorded for the dashboard's suspicious-login card. What was typed for an unknown account is never stored
+      // (people paste passwords into the login box).
+      await audit(app.prisma, { userId: null, branchId: null, ip: req.ip ?? '' }, { action: 'loginFailed', entity: 'User', entityId: u?.id ?? 0, entityCode: u?.username ?? '(không tồn tại)', summary: u ? `Đăng nhập thất bại: ${u.username}` : 'Đăng nhập thất bại: tài khoản không tồn tại' });
       throw new AppError(401, 'INVALID_CREDENTIALS', 'Tên đăng nhập hoặc mật khẩu không đúng');
     }
     if (!u.isActive) throw new AppError(401, 'INACTIVE', 'Tài khoản đã ngừng hoạt động');

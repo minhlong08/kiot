@@ -1,5 +1,13 @@
-import { allFacts } from '../services/reportFacts';
-import { margin, register, totalsOf, type Column, type ReportCtx } from './types';
+import { AppError } from '../lib/errors';
+import { hasPerm } from '../plugins/auth';
+import type { Fact } from '../services/reportFacts';
+import { factsFor, margin, register, totalsOf, type Column, type ReportCtx } from './types';
+
+function groupBy<T, K>(xs: T[], key: (x: T) => K) {
+  const m = new Map<K, T[]>();
+  for (const x of xs) { const k = key(x); const a = m.get(k); if (a) a.push(x); else m.set(k, [x]); }
+  return m;
+}
 
 const DOC_LABELS: Record<string, [string, 'in' | 'out' | 'both']> = {
   receipt: ['Nhập hàng', 'in'], return: ['Khách trả hàng', 'in'], transferIn: ['Chuyển kho đến', 'in'], opening: ['Tồn đầu', 'in'],
@@ -10,7 +18,8 @@ const baseType = (docType: string) => docType.replace(/_cancel$/, '');
 async function productInfo(c: ReportCtx, ids: number[]) {
   const ps = await c.db.product.findMany({ where: { id: { in: [...new Set(ids)] } }, select: { id: true, code: true, name: true, unit: true, groupId: true } });
   const gs = await c.db.productGroup.findMany({ select: { id: true, name: true } });
-  return (id: number) => { const p = ps.find(x => x.id === id); return { code: p?.code ?? '', name: p?.name ?? '', unit: p?.unit ?? '', group: gs.find(g => g.id === p?.groupId)?.name ?? '' }; };
+  const pm = new Map(ps.map(p => [p.id, p])), gm = new Map(gs.map(g => [g.id, g.name]));
+  return (id: number) => { const p = pm.get(id); return { code: p?.code ?? '', name: p?.name ?? '', unit: p?.unit ?? '', group: (p?.groupId && gm.get(p.groupId)) || '' }; };
 }
 
 /** Xuất nhập tồn from the stock ledger: opening = Σ before `from`; movements by kind; closing = opening + Σ in range. */
@@ -22,9 +31,10 @@ register('stock-movement', async c => {
   ]);
   const ids = [...new Set([...before.filter(b => b._sum.qtyChange).map(b => b.productId), ...within.map(w => w.productId)])];
   const info = await productInfo(c, ids);
+  const byProduct = groupBy(within, w => w.productId), openings = new Map(before.map(b => [b.productId, b._sum.qtyChange ?? 0]));
   const rows = ids.map(id => {
-    const mine = within.filter(w => w.productId === id);
-    const opening = before.find(b => b.productId === id)?._sum.qtyChange ?? 0;
+    const mine = byProduct.get(id) ?? [];
+    const opening = openings.get(id) ?? 0;
     // Each movement counts as in or out by its sign (a cancelled sale is an "in" of the sale kind, netted per kind below).
     const byKind: Record<string, number> = {};
     for (const m of mine) byKind[baseType(m.docType)] = (byKind[baseType(m.docType)] ?? 0) + m.qtyChange;
@@ -54,11 +64,9 @@ register('stock-value', async c => {
 });
 
 async function productSales(c: ReportCtx) {
-  const facts = await allFacts(c.db, { from: c.from, to: c.to, branchId: c.branchId });
+  const facts = await factsFor(c);
   const info = await productInfo(c, facts.map(f => f.productId));
-  const ids = [...new Set(facts.map(f => f.productId))];
-  return ids.map(id => {
-    const fs = facts.filter(f => f.productId === id);
+  return [...groupBy(facts, (f: Fact) => f.productId).entries()].map(([id, fs]) => {
     const sold = fs.filter(f => f.kind === 'sale'), ret = fs.filter(f => f.kind === 'return');
     const revenue = sold.reduce((s, f) => s + f.revenue, 0), returns = -ret.reduce((s, f) => s + f.revenue, 0), cost = fs.reduce((s, f) => s + f.cost, 0);
     return { productId: id, ...info(id), soldQty: sold.reduce((s, f) => s + f.qty, 0), returnedQty: -ret.reduce((s, f) => s + f.qty, 0), revenue, returns, net: revenue - returns, cost, profit: revenue - returns - cost, margin: margin(revenue - returns - cost, revenue - returns) };
@@ -94,9 +102,10 @@ async function ledgerReport(c: ReportCtx, type: 'customer' | 'supplier', title: 
   const partners = type === 'customer'
     ? await c.db.customer.findMany({ where: { id: { in: ids } }, select: { id: true, code: true, name: true, phone: true } })
     : await c.db.supplier.findMany({ where: { id: { in: ids } }, select: { id: true, code: true, name: true, phone: true } });
+  const byPartner = groupBy(within, w => w.partnerId), openings = new Map(before.map(b => [b.partnerId, b._sum.amount ?? 0]));
   const rows = ids.map(id => {
-    const opening = before.find(b => b.partnerId === id)?._sum.amount ?? 0;
-    const mine = within.filter(w => w.partnerId === id);
+    const opening = openings.get(id) ?? 0;
+    const mine = byPartner.get(id) ?? [];
     const increase = mine.filter(m => m.amount > 0).reduce((s, m) => s + m.amount, 0), decrease = -mine.filter(m => m.amount < 0).reduce((s, m) => s + m.amount, 0);
     const p = partners.find(x => x.id === id);
     return { partnerId: id, code: p?.code ?? '', name: p?.name ?? '', phone: p?.phone ?? '', opening, increase, decrease, closing: opening + increase - decrease };
@@ -108,11 +117,12 @@ register('customers-debt', c => ledgerReport(c, 'customer', 'Công nợ khách h
 register('suppliers-debt', c => ledgerReport(c, 'supplier', 'Công nợ nhà cung cấp'));
 
 register('customers-sales', async c => {
-  const facts = (await allFacts(c.db, { from: c.from, to: c.to, branchId: c.branchId })).filter(f => f.customerId);
+  const facts = (await factsFor(c)).filter(f => f.customerId);
   const ids = [...new Set(facts.map(f => f.customerId!))];
   const cs = await c.db.customer.findMany({ where: { id: { in: ids } }, select: { id: true, code: true, name: true, phone: true, debt: true } });
+  const byCustomer = groupBy(facts, f => f.customerId!);
   const rows = ids.map(id => {
-    const fs = facts.filter(f => f.customerId === id);
+    const fs = byCustomer.get(id) ?? [];
     const revenue = fs.filter(f => f.kind === 'sale').reduce((s, f) => s + f.revenue, 0), returns = -fs.filter(f => f.kind === 'return').reduce((s, f) => s + f.revenue, 0);
     const x = cs.find(y => y.id === id);
     return { code: x?.code ?? '', name: x?.name ?? '', phone: x?.phone ?? '', invoices: new Set(fs.filter(f => f.kind === 'sale').map(f => f.docId)).size, revenue, returns, net: revenue - returns, debt: x?.debt ?? 0 };
@@ -139,6 +149,7 @@ register('suppliers-purchases', async c => {
 });
 
 register('staff-payroll', async c => {
+  if (!hasPerm(c.user, 'payroll.view')) throw new AppError(403, 'FORBIDDEN', 'Báo cáo lương cần quyền xem bảng lương');
   const toDate = (d: Date) => new Date(d.getTime() + 7 * 3600_000).toISOString().slice(0, 10);
   const periods = await c.db.payrollPeriod.findMany({ where: { ...(c.branchId ? { branchId: c.branchId } : {}), status: { not: 'cancelled' }, from: { lte: toDate(new Date(c.to.getTime() - 1)) }, to: { gte: toDate(c.from) } } });
   const sheets = await c.db.paysheet.findMany({ where: { periodId: { in: periods.map(p => p.id) } } });
