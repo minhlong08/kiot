@@ -10,7 +10,7 @@ import type { DocCtx } from './stockDocs';
 type TaxLine = { amount: number; vatRate: number };
 
 /** Spreads document-level discounts over lines so line amounts add up exactly to `target`. */
-function allocate(amounts: number[], target: number): number[] {
+export function allocate(amounts: number[], target: number): number[] {
   const sum = amounts.reduce((s, a) => s + a, 0);
   if (!amounts.length) return [];
   if (sum === 0) return amounts.map((_, i) => (i === 0 ? target : 0));
