@@ -29,7 +29,7 @@ export function EInvoicesPage() {
   async function saveCreate() {
     if (!create) return;
     try {
-      const found = await api<{ items: { id: number; code: string }[] }>('/invoices', { query: { search: create.code.trim(), pageSize: 5, status: ['completed'] } });
+      const found = await api<{ items: { id: number; code: string }[] }>('/invoices', { query: { search: create.code.trim(), pageSize: 15, status: ['completed'] } });
       const inv = found.items.find(i => i.code.toUpperCase() === create.code.trim().toUpperCase());
       if (!inv) throw new Error('Không tìm thấy hóa đơn hoàn thành với mã này');
       const { code: _c, ...buyer } = create;

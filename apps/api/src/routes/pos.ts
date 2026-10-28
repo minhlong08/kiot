@@ -11,11 +11,8 @@ import { applicablePriceBooks } from '../services/priceBooks';
 import { isVariantMaster } from '../services/products';
 import { idOf } from './purchasing';
 
-const DEFAULT_CHANNELS = [['store', 'Cửa hàng'], ['facebook', 'Facebook'], ['zalo', 'Zalo'], ['phone', 'Điện thoại'], ['website', 'Website'], ['marketplace', 'Sàn TMĐT']];
-export async function ensureChannels(tx: Tx) {
-  if (await tx.salesChannel.count()) return;
-  await tx.salesChannel.createMany({ data: DEFAULT_CHANNELS.map(([code, name]) => ({ code, name })) });
-}
+import { ensureSalesChannels as ensureChannels } from '../services/channels';
+export { ensureChannels };
 
 /** Cash drawer movement of one user in cash funds since a moment (for shift close). */
 async function drawerSince(tx: Tx, userId: number, branchId: number, since: Date, until?: Date) {

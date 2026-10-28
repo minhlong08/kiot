@@ -4,6 +4,7 @@ import { seedCatalog } from '../src/seed/catalog';
 import { seedPurchasing } from '../src/seed/purchasing';
 import { seedCustomers } from '../src/seed/customers';
 import { seedSales } from '../src/seed/sales';
+import { seedOnline } from '../src/seed/online';
 import '../src/services/customerOrders';
 
 const prisma = getPrisma();
@@ -15,6 +16,7 @@ if (fresh) {
   await seedPurchasing(prisma);
   await seedCustomers(prisma);
   await seedSales(prisma);
+  await seedOnline(prisma);
 }
 console.log(fresh ? 'Seeded base + demo data (admin / admin123)' : 'Database already seeded');
 await prisma.$disconnect();

@@ -21,7 +21,7 @@ export function CodReconcileDialog({ open, onClose, partnerId: initial }: { open
   useEffect(() => { if (open) { setPartnerId(initial ?? 0); setExcluded([]); setFundId(0); setNote(''); } }, [open, initial]);
   const rows = useQuery({
     queryKey: ['deliveries', 'reconcilable', partnerId], enabled: open && !!partnerId,
-    queryFn: () => api<DeliveryList>('/deliveries', { query: { status: 'delivered', reconciled: 'false', partnerIds: String(partnerId), pageSize: 500 } }),
+    queryFn: () => api<DeliveryList>('/deliveries', { query: { status: 'delivered', reconciled: 'false', partnerIds: String(partnerId), pageSize: 100 } }),
   });
   const items = rows.data?.items ?? [];
   const chosen = items.filter(r => !excluded.includes(r.invoiceId));

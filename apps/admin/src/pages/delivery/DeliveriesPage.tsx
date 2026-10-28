@@ -27,7 +27,7 @@ export function DeliveriesPage() {
   const isRec = state.tab === 'reconciliations';
   const query = { page: state.page, pageSize: state.pageSize, status: [state.tab as string] };
   const list = useQuery({ queryKey: ['deliveries', 'board', query], enabled: !isRec, queryFn: () => api<DeliveryList>('/deliveries', { query }) });
-  const counts = useQuery({ queryKey: ['deliveries', 'counts'], queryFn: () => api<DeliveryList>('/deliveries', { query: { pageSize: 1 } }) });
+  const counts = useQuery({ queryKey: ['deliveries', 'counts'], queryFn: () => api<DeliveryList>('/deliveries', { query: { pageSize: 15 } }) });
   const recs = useQuery({ queryKey: ['cod-reconciliations', state.page], enabled: isRec, queryFn: () => api<{ items: Rec[]; total: number }>('/cod-reconciliations', { query: { page: state.page, pageSize: state.pageSize } }) });
   const cancel = useMutation({
     mutationFn: (id: number) => api(`/cod-reconciliations/${id}/cancel`, { body: {} }),

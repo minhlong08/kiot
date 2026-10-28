@@ -2,8 +2,8 @@ import type { Tx } from '../db';
 
 /** Labels only: marketplace/social integrations would plug in behind these codes. */
 export const DEFAULT_CHANNELS = [
-  { code: 'store', name: 'Cửa hàng' }, { code: 'website', name: 'Website bán hàng' }, { code: 'facebook', name: 'Facebook' },
-  { code: 'zalo', name: 'Zalo' }, { code: 'shopee', name: 'Shopee' },
+  { code: 'store', name: 'Cửa hàng' }, { code: 'facebook', name: 'Facebook' }, { code: 'zalo', name: 'Zalo' }, { code: 'phone', name: 'Điện thoại' },
+  { code: 'website', name: 'Website' }, { code: 'marketplace', name: 'Sàn TMĐT' },
 ];
 
 export async function ensureSalesChannels(tx: Tx) {
