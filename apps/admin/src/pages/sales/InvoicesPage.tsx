@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Link } from '@tanstack/react-router';
+import { DELIVERY_STATUSES } from '../delivery/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDateTime, formatVnd } from '@pd/shared';
 import { api, download } from '../../lib/api';
@@ -46,7 +48,7 @@ function Expanded({ id, onCancel, onReturn }: { id: number; onCancel: () => void
                 {d.payments.map(p => <div key={p.id} className="flex justify-between"><span>{METHOD[p.method] ?? p.method}{p.voucherCode ? ` (${p.voucherCode})` : ''}</span><span>{formatVnd(p.amount)}</span></div>)}
                 {d.debt > 0 && <div className="flex justify-between text-rose-700"><span>Còn nợ</span><span>{formatVnd(d.debt)}</span></div>}
               </div>
-              {d.delivery && <div className="rounded bg-sky-50 p-2 text-sm">Giao hàng: {d.delivery.receiverName} · {d.delivery.receiverPhone} · {d.delivery.address} · Phí {formatVnd(d.delivery.fee)} · COD {formatVnd(d.delivery.cod)}</div>}
+              {d.delivery && <div className="flex flex-wrap items-center gap-2 rounded bg-sky-50 p-2 text-sm">Giao hàng: {d.delivery.receiverName} · {d.delivery.receiverPhone} · {d.delivery.address} · Phí {formatVnd(d.delivery.fee)} · COD {formatVnd(d.delivery.cod)} · <b>{DELIVERY_STATUSES.find(s => s.value === d.delivery!.status)?.label}</b><Link to="/waybills" className="ml-auto text-brand-700 hover:underline">Xem vận đơn</Link></div>}
             </div>
           ),
         },

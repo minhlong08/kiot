@@ -15,7 +15,7 @@ import { printVoucher } from './printVoucher';
 type Row = { id: number; code: string; createdAt: string; kind: 'in' | 'out'; amount: number; categoryName: string; counterpartyName: string; counterpartyType: string; status: string; sourceType: string | null; sourceCode: string | null; fundName: string; createdByName: string; note: string; affectsPnl: boolean };
 type Summary = { opening: number; in: number; out: number; closing: number };
 const TABS = [{ key: 'cash', label: 'Tiền mặt' }, { key: 'bank', label: 'Ngân hàng' }, { key: 'ewallet', label: 'Ví điện tử' }, { key: 'all', label: 'Tổng quỹ' }];
-const SOURCE_LABEL: Record<string, string> = { invoice: 'Hóa đơn', return: 'Trả hàng', receipt: 'Nhập hàng', purchaseReturn: 'Trả hàng nhập', customerOrder: 'Đặt hàng', supplierPayment: 'Thanh toán NCC', customerPayment: 'Thu nợ khách', servicePurchase: 'Mua dịch vụ', manual: 'Lập thủ công', transfer: 'Chuyển quỹ', payroll: 'Bảng lương' };
+const SOURCE_LABEL: Record<string, string> = { invoice: 'Hóa đơn', return: 'Trả hàng', receipt: 'Nhập hàng', purchaseReturn: 'Trả hàng nhập', customerOrder: 'Đặt hàng', supplierPayment: 'Thanh toán NCC', customerPayment: 'Thu nợ khách', servicePurchase: 'Mua dịch vụ', manual: 'Lập thủ công', transfer: 'Chuyển quỹ', payroll: 'Bảng lương', codReconciliation: 'Đối soát COD' };
 const PARTY: Record<string, string> = { customer: 'Khách hàng', supplier: 'Nhà cung cấp', employee: 'Nhân viên', other: 'Khác' };
 
 export function CashbookPage() {
