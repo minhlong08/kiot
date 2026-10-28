@@ -3,6 +3,7 @@ import { badRequest, conflict, notFound } from '../lib/errors';
 import { docCode, mergeLines } from '../lib/docs';
 import { audit, type AuditCtx } from './audit';
 import { getSettings } from './settings';
+import { isVariantMaster } from './products';
 import { adjustCounter, getBranchStock, moveStock, reverseDocument, setOnHand } from './stock';
 
 export type DocCtx = AuditCtx & { branchId: number; userId: number };
@@ -10,7 +11,7 @@ export type DocCtx = AuditCtx & { branchId: number; userId: number };
 async function assertGoods(tx: Tx, ids: number[]) {
   const ps = await tx.product.findMany({ where: { id: { in: ids } } });
   if (ps.length !== new Set(ids).size) throw notFound('Hàng hóa');
-  const bad = ps.find(p => p.type !== 'goods');
+  const bad = ps.find(p => p.type !== 'goods' || isVariantMaster(p));
   if (bad) throw badRequest('NOT_STOCKED', `${bad.code} không phải hàng hóa có tồn kho`);
 }
 

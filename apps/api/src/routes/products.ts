@@ -8,7 +8,7 @@ import { dateParam, listParam, orderByOf, parseList } from '../lib/list';
 import { readXlsx, sendXlsx } from '../lib/excel';
 import { badRequest } from '../lib/errors';
 import { IMPORT_COLUMNS, IMPORT_EXAMPLE, importProducts } from '../services/productImport';
-import { notFound } from '../lib/errors';
+import { AppError, notFound } from '../lib/errors';
 import { audit } from '../services/audit';
 import { deleteProduct, expectedOutDates, saveProduct } from '../services/products';
 import { groupWithDescendants } from './catalog';
@@ -78,6 +78,11 @@ export async function productRoutes(app: FastifyInstance) {
   const db = app.prisma;
   const canCost = (req: FastifyRequest) => hasPerm(req.user, 'cost.view');
   const ctxOf = (req: FastifyRequest) => ({ ...req.auditCtx, branchId: user(req).branchId });
+  const hideCost = <T extends { cost: number }>(req: FastifyRequest, p: T) => {
+    if (canCost(req)) return p;
+    const { cost: _c, ...rest } = p;
+    return rest;
+  };
 
   async function listRows(req: FastifyRequest, where: Prisma.ProductWhereInput, page?: { skip: number; take: number; sort?: string }) {
     const u = user(req);
@@ -140,6 +145,7 @@ export async function productRoutes(app: FastifyInstance) {
 
   app.post('/api/products/import', { preHandler: requirePermission('products.create') }, async req => {
     const mode = (req.query as { mode?: string }).mode === 'upsert' ? 'upsert' : 'create';
+    if (mode === 'upsert' && !hasPerm(req.user, 'products.edit')) throw new AppError(403, 'FORBIDDEN', 'Bạn không có quyền cập nhật hàng hóa');
     const file = await req.file();
     if (!file) throw badRequest('NO_FILE', 'Chưa chọn file');
     let rows: Record<string, unknown>[];
@@ -150,7 +156,7 @@ export async function productRoutes(app: FastifyInstance) {
     }
     if (!rows.length) throw badRequest('EMPTY_FILE', 'File không có dữ liệu');
     if (rows.length > 5000) throw badRequest('TOO_MANY_ROWS', 'Tối đa 5.000 dòng mỗi lần import');
-    return db.$transaction(tx => importProducts(tx, ctxOf(req), rows, mode), { timeout: 120_000 });
+    return db.$transaction(tx => importProducts(tx, ctxOf(req), rows, mode, { canCost: canCost(req) }), { timeout: 120_000 });
   });
 
   app.get('/api/products/lookup', async req => {
@@ -231,7 +237,11 @@ export async function productRoutes(app: FastifyInstance) {
   app.get('/api/products/:id/stock-card', { preHandler: requirePermission('products.view') }, async req => {
     const id = idOf(req);
     const q = parseList(req.query);
-    const branchId = Number((req.query as { branchId?: string }).branchId) || user(req).branchId;
+    const u = user(req);
+    const branchId = Number((req.query as { branchId?: string }).branchId) || u.branchId;
+    if (branchId !== u.branchId && !u.isAdmin && !(await db.userBranch.findUnique({ where: { userId_branchId: { userId: u.id, branchId } } }))) {
+      throw new AppError(403, 'FORBIDDEN', 'Bạn không có quyền xem chi nhánh này');
+    }
     const where = { productId: id, branchId };
     const [items, total] = await Promise.all([
       db.stockLedger.findMany({ where, orderBy: { id: 'desc' }, skip: q.skip, take: q.take }),
@@ -243,12 +253,12 @@ export async function productRoutes(app: FastifyInstance) {
 
   app.post('/api/products', { preHandler: requirePermission('products.create') }, async req => {
     const input = productInputSchema.parse(req.body);
-    return db.$transaction(tx => saveProduct(tx, ctxOf(req), input));
+    return hideCost(req, await db.$transaction(tx => saveProduct(tx, ctxOf(req), input, undefined, { canCost: canCost(req) })));
   });
 
   app.put('/api/products/:id', { preHandler: requirePermission('products.edit') }, async req => {
     const input = productInputSchema.parse(req.body);
-    return db.$transaction(tx => saveProduct(tx, ctxOf(req), input, idOf(req)));
+    return hideCost(req, await db.$transaction(tx => saveProduct(tx, ctxOf(req), input, idOf(req), { canCost: canCost(req) })));
   });
 
   app.post('/api/products/:id/copy', { preHandler: requirePermission('products.create') }, async req => {
@@ -266,6 +276,7 @@ export async function productRoutes(app: FastifyInstance) {
   const bulkInput = z.object({ ids: z.array(z.number().int()).min(1), action: z.enum(['activate', 'deactivate', 'delete', 'setGroup']), groupId: z.number().int().optional() });
   app.post('/api/products/bulk', { preHandler: requirePermission('products.edit') }, async req => {
     const b = bulkInput.parse(req.body);
+    if (b.action === 'delete' && !hasPerm(req.user, 'products.delete')) throw new AppError(403, 'FORBIDDEN', 'Bạn không có quyền xóa hàng hóa');
     return db.$transaction(async tx => {
       if (b.action === 'delete') {
         const results = [];

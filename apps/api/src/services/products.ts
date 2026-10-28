@@ -33,17 +33,21 @@ async function writeOpening(tx: Tx, ctx: SaveCtx, productId: number, code: strin
   await moveStock(tx, { productId, branchId: ctx.branchId, qty, unitCost: cost, docType: 'opening', docId: productId, docCode: code, note: 'Tồn kho ban đầu' }, { allowNegative: true });
 }
 
-export async function saveProduct(tx: Tx, ctx: SaveCtx, input: ProductInput, id?: number) {
+/** `canCost`: callers without cost.view never change stored costs (their form never saw them). */
+export async function saveProduct(tx: Tx, ctx: SaveCtx, input: ProductInput, id?: number, opts: { canCost?: boolean } = {}) {
+  const canCost = opts.canCost ?? true;
   const settings = await getSettings(tx);
   const prefix = settings.orders.codePrefixes.product;
   const before = id ? await tx.product.findUnique({ where: { id } }) : null;
   if (id && !before) throw notFound('Hàng hóa');
   if (before?.parentId) throw badRequest('IS_VARIANT', 'Hãy sửa hàng hóa gốc để cập nhật hàng cùng loại');
+  if (!canCost) input = { ...input, cost: before?.cost ?? 0 };
 
   if (input.type === 'combo') {
     const items = await tx.product.findMany({ where: { id: { in: input.comboItems.map(i => i.itemId) } } });
     if (items.length !== input.comboItems.length) throw badRequest('INVALID_COMBO', 'Hàng thành phần không tồn tại');
     if (items.some(i => i.type === 'combo' || i.id === id)) throw badRequest('INVALID_COMBO', 'Hàng thành phần không thể là combo');
+    if (items.some(i => !i.isActive || isVariantMaster(i))) throw badRequest('INVALID_COMBO', 'Hàng thành phần phải là hàng đang kinh doanh (không phải hàng gốc có thuộc tính)');
   }
 
   let code = input.code ?? before?.code;
@@ -51,6 +55,14 @@ export async function saveProduct(tx: Tx, ctx: SaveCtx, input: ProductInput, id?
   else if (code !== before?.code) await reserveCode(tx, prefix, code);
 
   const hasVariants = input.type === 'goods' && input.variants.length > 0;
+  if (before && hasVariants && !isVariantMaster(before)) {
+    // Turning a stocked product into a variant master would hide its stock behind the (unlisted) master.
+    const [history, stocked] = await Promise.all([
+      tx.stockLedger.count({ where: { productId: before.id } }),
+      tx.branchStock.count({ where: { productId: before.id, onHand: { not: 0 } } }),
+    ]);
+    if (history || stocked) throw new AppError(409, 'HAS_STOCK_HISTORY', 'Hàng hóa đã có tồn kho hoặc giao dịch, không thể thêm thuộc tính. Hãy tạo hàng hóa mới có thuộc tính.');
+  }
   const data = {
     ...commonData(input),
     code,
@@ -79,7 +91,7 @@ export async function saveProduct(tx: Tx, ctx: SaveCtx, input: ProductInput, id?
   await tx.productBranch.deleteMany({ where: { productId: product.id } });
   if (!input.allBranches) await tx.productBranch.createMany({ data: input.branchIds.map(branchId => ({ productId: product.id, branchId })) });
 
-  if (hasVariants) await saveVariants(tx, ctx, product.id, code, input);
+  if (hasVariants) await saveVariants(tx, ctx, product.id, code, input, canCost);
   else if (!id && input.type === 'goods') await writeOpening(tx, ctx, product.id, code, input.onHand, input.cost);
 
   await audit(tx, ctx, {
@@ -89,7 +101,7 @@ export async function saveProduct(tx: Tx, ctx: SaveCtx, input: ProductInput, id?
   return product;
 }
 
-async function saveVariants(tx: Tx, ctx: SaveCtx, masterId: number, masterCode: string, input: ProductInput) {
+async function saveVariants(tx: Tx, ctx: SaveCtx, masterId: number, masterCode: string, input: ProductInput, canCost: boolean) {
   const existing = await tx.product.findMany({ where: { parentId: masterId } });
   const keep = new Set<number>();
   let n = existing.length;
@@ -101,7 +113,7 @@ async function saveVariants(tx: Tx, ctx: SaveCtx, masterId: number, masterCode: 
     const current = v.id ? existing.find(e => e.id === v.id) : existing.find(e => e.variantLabel === label);
     if (current) {
       const code = v.code ?? current.code;
-      await tx.product.update({ where: { id: current.id }, data: { ...common, code, searchText: searchTextOf(code, v.barcode, name) } });
+      await tx.product.update({ where: { id: current.id }, data: { ...common, ...(canCost ? {} : { cost: current.cost }), code, searchText: searchTextOf(code, v.barcode, name) } });
       keep.add(current.id);
     } else {
       let code = v.code;
@@ -164,6 +176,11 @@ export async function deleteProduct(tx: Tx, ctx: AuditCtx, id: number) {
   await tx.product.delete({ where: { id } });
   await audit(tx, ctx, { action: 'delete', entity: 'Product', entityId: id, entityCode: p.code, summary: `Xóa hàng hóa ${p.code} - ${p.name}`, before: p });
   return { deleted: true as const };
+}
+
+/** A goods product whose attributes define variants; it is hidden from lists and never holds stock. */
+export function isVariantMaster(p: { parentId: number | null; attributes: string }) {
+  return p.parentId === null && p.attributes !== '[]';
 }
 
 export function assertExists<T>(v: T | null, what = 'Hàng hóa'): T {

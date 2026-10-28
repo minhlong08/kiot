@@ -87,7 +87,8 @@ async function resolveBrand(tx: Tx, name: string) {
   return (await tx.brand.findUnique({ where: { name } }))?.id ?? (await tx.brand.create({ data: { name } })).id;
 }
 
-export async function importProducts(tx: Tx, ctx: SaveCtx, raw: Record<string, unknown>[], mode: 'create' | 'upsert') {
+export async function importProducts(tx: Tx, ctx: SaveCtx, raw: Record<string, unknown>[], mode: 'create' | 'upsert', opts: { canCost?: boolean } = {}) {
+  const canCost = opts.canCost ?? true;
   const { parsed, errors } = parseImportRows(raw);
   const codes = parsed.map(p => p.input.code).filter((c): c is string => !!c);
   const existing = new Map((await tx.product.findMany({ where: { code: { in: codes } } })).map(p => [p.code, p]));
@@ -106,11 +107,11 @@ export async function importProducts(tx: Tx, ctx: SaveCtx, raw: Record<string, u
       const { onHand: _o, units: _u, attributes: _a, variants: _v, comboItems: _c, warranties: _w, images: _i, branchIds: _b, code: _code, ...fields } = p.input;
       await tx.product.update({
         where: { id: current.id },
-        data: { name: fields.name, barcode: fields.barcode ?? null, price: fields.price, cost: fields.cost, minStock: fields.minStock, maxStock: fields.maxStock, unit: fields.unit, weight: fields.weight, isDirectSale: fields.isDirectSale, description: fields.description, groupId, brandId, searchText: searchTextOf(current.code, fields.barcode, fields.name) },
+        data: { name: fields.name, barcode: fields.barcode ?? null, price: fields.price, ...(canCost ? { cost: fields.cost } : {}), minStock: fields.minStock, maxStock: fields.maxStock, unit: fields.unit, weight: fields.weight, isDirectSale: fields.isDirectSale, description: fields.description, groupId, brandId, searchText: searchTextOf(current.code, fields.barcode, fields.name) },
       });
       updated++;
     } else {
-      await saveProduct(tx, ctx, { ...p.input, groupId, brandId });
+      await saveProduct(tx, ctx, { ...p.input, groupId, brandId }, undefined, { canCost });
       created++;
     }
   }

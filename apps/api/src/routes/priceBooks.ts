@@ -4,7 +4,7 @@ import { applyPriceFormula, moneySchema, normalizeVi } from '@pd/shared';
 import type { Prisma } from '../db';
 import { hasPerm, requirePermission, user } from '../plugins/auth';
 import { listParam, parseList } from '../lib/list';
-import { badRequest, notFound } from '../lib/errors';
+import { AppError, badRequest, notFound } from '../lib/errors';
 import { audit } from '../services/audit';
 import { applicablePriceBooks } from '../services/priceBooks';
 import { groupWithDescendants } from './catalog';
@@ -139,6 +139,7 @@ export async function priceBookRoutes(app: FastifyInstance) {
     const id = idOf(req);
     const f = formulaInput.parse(req.body);
     if (f.base === 'book' && !f.baseBookId) throw badRequest('NO_BASE_BOOK', 'Chọn bảng giá gốc');
+    if (f.base === 'cost' && !hasPerm(req.user, 'cost.view')) throw new AppError(403, 'FORBIDDEN', 'Bạn không có quyền xem giá vốn');
     return db.$transaction(async tx => {
       const book = await tx.priceBook.findUnique({ where: { id } });
       if (!book) throw notFound('Bảng giá');
