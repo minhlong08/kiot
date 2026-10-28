@@ -110,3 +110,22 @@ Rulings made during the build and deferred review findings, per milestone.
 - Final: minor (deferred): sellerId and channel not validated; otherIncome has no permission
 - Final: minor (deferred): shift report / customer history not branch-scoped
 - Final: minor (deferred): unit lines ignore price-book prices (books are per base product)
+
+## Milestone 6 — Cash book
+
+- Task 2: Ruling: summary bar is the fund balance over the period (ignores the list's text/category filters) — cost: none
+- Task 2: Ruling: fund balances shown only to cashbook.view; manual vouchers may be backdated (audited) — cost: none
+- Task 4: Ruling: POS 'require customer' and 'rounding' options not added — settingsSchema has neither and no sale path enforces them; a toggle that does nothing would mislead — cost if wrong: two settings fields plus enforcement in computeSale/PaymentPanel, deferred to M10 polish.
+- Task 5: Ruling: E2E asserts balance deltas rather than a positive starting balance — seeded cash fund is negative (-87M) because seeded receipts are paid in cash with no opening balance — cost if wrong: none for tests; demo looks odd (deferred minor: seed a cash opening balance).
+- Task 5: Ruling: TransferForm/VoucherForm defaults derived at render instead of a reset effect keyed on funds.data — full E2E run posted fromFundId 0 ("Quỹ tiền không tồn tại"); exact trigger not isolated, derived defaults make an unset id impossible and stop refetches wiping input — cost if wrong: a remaining race would surface as the same server 400, never a wrong posting.
+- Final: fixed double cancel restoring debt twice — 'concurrent cancels … restore the debt once' (did not reproduce RED: SQLite serialises inject requests; kept as guard) + in-transaction updateMany claim, suite 252/252
+- Final: fixed fund PUT wiping openingBalance — 'editing a fund without sending openingBalance keeps it' RED→GREEN, suite 252/252
+- Final: fixed export without cashbook.view — 'export needs cashbook.view as well as cashbook.export' RED→GREEN, suite 252/252
+- Final: fixed deactivating POS default / last cash fund — 'a POS default fund or the last active cash fund cannot be deactivated or deleted' RED→GREEN, suite 252/252
+- Final: minor (deferred): category kind change allowed on used categories via API
+- Final: minor (deferred): fund PUT/DELETE not branch-scoped for non-admins; admin ?all=1 still branch-scoped
+- Final: minor (deferred): company-wide fund balance per branch = opening + this branch's vouchers only
+- Final: minor (deferred): fund delete has no confirmation dialog; cancel confirm not disabled while pending
+- Final: minor (deferred): category create allowed with cashbook.create; settings page shows buttons regardless of permission
+- Final: minor (deferred): decorate() loads all users/categories/funds per call
+- Final: minor (deferred): seed leaves the cash fund negative (no opening balance)
