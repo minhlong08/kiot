@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { formatDateTime, purchaseOrderInputSchema, receiptInputSchema } from '@pd/shared';
+import { formatDateTime, purchaseOrderInputSchema, purchaseReturnInputSchema, receiptInputSchema } from '@pd/shared';
 import type { Prisma } from '../db';
 import { hasPerm, requirePermission, user } from '../plugins/auth';
 import { dateParam, listParam, parseList } from '../lib/list';
@@ -8,6 +8,7 @@ import { badRequest, notFound } from '../lib/errors';
 import { linesWithInfo } from '../services/purchaseLines';
 import { confirmPurchaseOrder, finishPurchaseOrder, savePurchaseOrder } from '../services/purchaseOrders';
 import { cancelReceipt, completeReceipt, saveReceipt } from '../services/receipts';
+import { cancelPurchaseReturn, completePurchaseReturn, savePurchaseReturn } from '../services/purchaseReturns';
 import type { DocCtx } from '../services/stockDocs';
 
 export const idOf = (req: FastifyRequest) => Number((req.params as { id: string }).id);
@@ -197,6 +198,75 @@ export async function receiptRoutes(app: FastifyInstance) {
   });
   app.post('/api/purchase-receipts/:id/cancel', { preHandler: requirePermission('purchaseReceipts.delete') }, async req => {
     await db.$transaction(tx => cancelReceipt(tx, docCtx(req), idOf(req)));
+    return detail(req, idOf(req));
+  });
+}
+
+export async function purchaseReturnRoutes(app: FastifyInstance) {
+  const db = app.prisma;
+
+  async function detail(req: FastifyRequest, id: number) {
+    const r = await db.purchaseReturn.findUnique({ where: { id }, include: { lines: true } });
+    if (!r || r.branchId !== user(req).branchId) throw notFound('Phiếu trả hàng nhập');
+    const n = await nameMaps(app);
+    const receipt = r.receiptId ? await db.purchaseReceipt.findUnique({ where: { id: r.receiptId }, select: { code: true } }) : null;
+    const lines = (await linesWithInfo(db, r.lines)).map(({ cost, ...l }) => ({ ...l, ...(hasPerm(req.user, 'cost.view') ? { cost } : {}) }));
+    return { ...r, supplierCode: n.supplier(r.supplierId)?.code, supplierName: n.supplier(r.supplierId)?.name, createdByName: n.user(r.createdById), receiptCode: receipt?.code ?? null, lines };
+  }
+
+  app.get('/api/purchase-receipts/:id/return-draft', { preHandler: requirePermission('purchaseReturns.create') }, async req => {
+    const r = await db.purchaseReceipt.findUnique({ where: { id: idOf(req) }, include: { lines: true } });
+    if (!r || r.branchId !== user(req).branchId || r.status !== 'completed') throw notFound('Phiếu nhập hàng');
+    const lines = await linesWithInfo(db, r.lines);
+    return {
+      supplierId: r.supplierId, receiptId: r.id, receiptCode: r.code,
+      lines: lines.map(l => ({
+        productId: l.productId, unitId: l.unitId, productCode: l.productCode, productName: l.productName, unit: l.unit, conversion: l.conversion,
+        qty: Math.floor((l.qty * l.conversion - l.returnedQty) / l.conversion), price: Math.round((l.qty * l.unitCost - l.discount) / l.qty),
+      })).filter(l => l.qty > 0),
+    };
+  });
+
+  app.get('/api/purchase-returns', { preHandler: requirePermission('purchaseReturns.view') }, async req => {
+    const q = parseList(req.query);
+    const where = purchaseWhere(req) as Prisma.PurchaseReturnWhereInput;
+    const [rows, total, sums] = await Promise.all([db.purchaseReturn.findMany({ where, orderBy: { id: 'desc' }, skip: q.skip, take: q.take }), db.purchaseReturn.count({ where }), db.purchaseReturn.aggregate({ where, _sum: { total: true, refund: true } })]);
+    const n = await nameMaps(app);
+    return { items: rows.map(r => ({ ...r, supplierCode: n.supplier(r.supplierId)?.code, supplierName: n.supplier(r.supplierId)?.name })), total, totals: { total: sums._sum.total ?? 0, refund: sums._sum.refund ?? 0 } };
+  });
+  app.get('/api/purchase-returns/export', { preHandler: requirePermission('purchaseReturns.export', 'purchaseReturns.view') }, async (req, reply) => {
+    const n = await nameMaps(app);
+    const rows = await db.purchaseReturn.findMany({ where: purchaseWhere(req) as Prisma.PurchaseReturnWhereInput, orderBy: { id: 'desc' } });
+    return sendXlsx(reply, 'tra-hang-nhap.xlsx', [
+      { header: 'Mã trả hàng nhập', key: 'code' }, { header: 'Thời gian', key: 'time' }, { header: 'Nhà cung cấp', key: 'supplier', width: 30 },
+      { header: 'Tổng tiền hàng', key: 'subtotal', money: true }, { header: 'Giảm giá', key: 'discount', money: true }, { header: 'NCC cần trả', key: 'total', money: true },
+      { header: 'NCC đã trả', key: 'refund', money: true }, { header: 'Trạng thái', key: 'status' },
+    ], rows.map(r => ({ ...r, time: formatDateTime(r.createdAt), supplier: n.supplier(r.supplierId)?.name })));
+  });
+  app.get('/api/purchase-returns/:id', { preHandler: requirePermission('purchaseReturns.view') }, async req => detail(req, idOf(req)));
+  app.post('/api/purchase-returns', { preHandler: requirePermission('purchaseReturns.create') }, async req => {
+    const b = purchaseReturnInputSchema.parse(req.body);
+    const id = await db.$transaction(async tx => {
+      const r = await savePurchaseReturn(tx, docCtx(req), b);
+      if (b.complete) await completePurchaseReturn(tx, docCtx(req), r.id);
+      return r.id;
+    });
+    return detail(req, id);
+  });
+  app.put('/api/purchase-returns/:id', { preHandler: requirePermission('purchaseReturns.edit') }, async req => {
+    const b = purchaseReturnInputSchema.parse(req.body);
+    await db.$transaction(async tx => {
+      await savePurchaseReturn(tx, docCtx(req), b, idOf(req));
+      if (b.complete) await completePurchaseReturn(tx, docCtx(req), idOf(req));
+    });
+    return detail(req, idOf(req));
+  });
+  app.post('/api/purchase-returns/:id/complete', { preHandler: requirePermission('purchaseReturns.edit', 'purchaseReturns.create') }, async req => {
+    await db.$transaction(tx => completePurchaseReturn(tx, docCtx(req), idOf(req)));
+    return detail(req, idOf(req));
+  });
+  app.post('/api/purchase-returns/:id/cancel', { preHandler: requirePermission('purchaseReturns.delete') }, async req => {
+    await db.$transaction(tx => cancelPurchaseReturn(tx, docCtx(req), idOf(req)));
     return detail(req, idOf(req));
   });
 }
