@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { ImageIcon } from 'lucide-react';
-import { formatVnd } from '@pd/shared';
+import { formatVnd, type ProductType } from '@pd/shared';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { PRODUCT_TYPE_LABELS } from '../../lib/labels';
@@ -8,7 +8,7 @@ import { Tabs } from '../../components/Tabs';
 import { StockCard } from './StockCard';
 
 export type ProductDetailData = {
-  id: number; code: string; barcode: string | null; name: string; type: string; price: number; cost?: number; unit: string; minStock: number; maxStock: number;
+  id: number; parentId: number | null; code: string; barcode: string | null; name: string; type: ProductType; price: number; cost?: number; unit: string; minStock: number; maxStock: number;
   weight: number; description: string; note: string; orderNoteTemplate: string; isActive: boolean; isDirectSale: boolean; loyaltyEnabled: boolean;
   groupId: number | null; brandId: number | null; locationId: number | null; vatRate: number | null; points: number | null; sellOnline: boolean; allBranches: boolean; branchIds: number[];
   images: string[]; attributes: { name: string; values: string[] }[];

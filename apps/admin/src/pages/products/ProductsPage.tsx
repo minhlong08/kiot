@@ -13,7 +13,7 @@ import {
 import { GroupTreeFilter } from './GroupTreeFilter';
 import { ProductDetail } from './ProductDetail';
 import { useBrands, useGroups } from './useLookups';
-import { productPageHooks } from './productPageHooks';
+import { useProductDialogs } from './productPageHooks';
 
 export type ProductRow = {
   id: number; code: string; name: string; type: string; price: number; cost?: number; onHand: number; reserved: number; createdAt: string;
@@ -36,7 +36,7 @@ export function ProductsPage() {
   });
   const [selected, setSelected] = useState<(string | number)[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<number[] | null>(null);
-  const hooks = productPageHooks();
+  const hooks = useProductDialogs();
 
   const created = resolveDateRange(state.created as string);
   const query = {
