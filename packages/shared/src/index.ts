@@ -21,3 +21,4 @@ export * from './schemas/sales';
 export * from './words';
 export * from './tax';
 export * from './staff';
+export * from './reports';
