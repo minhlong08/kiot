@@ -20,6 +20,8 @@ export function LoginPage() {
     try {
       const res = await api<{ user: { mustChangePassword: boolean } }>('/auth/login', { body: { login, password } });
       await refresh();
+      const next = new URLSearchParams(window.location.search).get('next');
+      if (!res.user.mustChangePassword && next?.startsWith('/sale')) return window.location.assign(next);
       navigate({ to: res.user.mustChangePassword ? '/change-password' : '/dashboard' });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
