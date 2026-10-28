@@ -6,9 +6,11 @@ import { nextCode } from './codes';
 export const CASH_CATEGORIES: { kind: 'in' | 'out'; name: string; affectsPnl: boolean }[] = [
   { kind: 'in', name: 'Thu tiền khách trả', affectsPnl: false },
   { kind: 'in', name: 'Thu tiền NCC hoàn trả', affectsPnl: false },
+  { kind: 'in', name: 'Thu tiền đối tác giao hàng', affectsPnl: false },
   { kind: 'in', name: 'Thu khác', affectsPnl: true },
   { kind: 'out', name: 'Chi tiền trả NCC', affectsPnl: false },
   { kind: 'out', name: 'Chi tiền trả khách', affectsPnl: false },
+  { kind: 'out', name: 'Chi tiền trả đối tác giao hàng', affectsPnl: false },
   { kind: 'out', name: 'Chi phí dịch vụ', affectsPnl: true },
   { kind: 'out', name: 'Chi lương', affectsPnl: true },
   { kind: 'out', name: 'Chi khác', affectsPnl: true },
