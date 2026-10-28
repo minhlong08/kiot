@@ -6,4 +6,4 @@ onlyBuiltDependencies:
   - '@prisma/client'
   - '@prisma/engines'
   - esbuild
-  - bcrypt
+  - better-sqlite3

@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Branch {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  name      String
+  phone     String   @default("")
+  address   String   @default("")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  users     UserBranch[]
+}
+
+model Role {
+  id                 Int              @id @default(autoincrement())
+  name               String           @unique
+  isAdmin            Boolean          @default(false)
+  maxDiscountPercent Int              @default(100)
+  permissions        RolePermission[]
+  users              User[]
+}
+
+model RolePermission {
+  roleId Int
+  key    String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, key])
+}
+
+model User {
+  id                 Int          @id @default(autoincrement())
+  username           String       @unique
+  phone              String?      @unique
+  email              String?      @unique
+  fullName           String
+  passwordHash       String
+  mustChangePassword Boolean      @default(false)
+  isActive           Boolean      @default(true)
+  roleId             Int
+  role               Role         @relation(fields: [roleId], references: [id])
+  defaultBranchId    Int?
+  branchAccess       UserBranch[]
+  sessions           Session[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+model UserBranch {
+  userId   Int
+  branchId Int
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([userId, branchId])
+}
+
+model Session {
+  id         String   @id
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branchId   Int
+  ip         String   @default("")
+  userAgent  String   @default("")
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  expiresAt  DateTime
+
+  @@index([userId])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model DocumentSequence {
+  prefix String @id
+  next   Int    @default(1)
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int?
+  branchId   Int?
+  action     String
+  entity     String
+  entityId   String
+  entityCode String   @default("")
+  summary    String
+  diff       String   @default("{}")
+  ip         String   @default("")
+  createdAt  DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
