@@ -9,3 +9,10 @@ test-results
 *.tsbuildinfo
 apps/api/src/generated
 apps/api/prisma/pg
+
+# AI-assistant / editor files (not part of the app)
+.agents/
+.claude/
+.windsurf/
+skills-lock.json
+.DS_Store
