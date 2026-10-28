@@ -39,7 +39,7 @@ This is an **original application**. Match the *feature set and workflows* of ty
 - Net revenue chart with tabs **Theo ngày / Theo giờ / Theo thứ** and period selector (today, yesterday, this week, this month, last month…).
 - Top 10 products by revenue (horizontal bar chart, toggle revenue/quantity).
 - Top 10 customers by revenue.
-- Right sidebar: "Hoạt động gần đây" activity feed ("<staff> vừa bán đơn hàng với giá trị 69,128,000 – một ngày trước"), suspicious-login alert card, quick-link cards.
+- Right sidebar: "Hoạt động gần đây" activity feed ("<staff> vừa bán đơn hàng với giá trị 1,250,000 – một ngày trước"), suspicious-login alert card, quick-link cards.
 - Staff performance widget (empty state with "Thêm nhân viên" CTA).
 
 ### 2. Hàng hóa (Products)

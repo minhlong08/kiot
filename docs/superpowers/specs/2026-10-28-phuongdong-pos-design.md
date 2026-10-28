@@ -5,7 +5,7 @@ Status: draft, awaiting owner approval
 
 ## 1. Intent
 
-The owner runs a small Vietnamese fashion/accessories shop on a hosted retail POS (KiotViet, store `phuongdong2`). They want an **original, self-hosted** application that matches that product's *feature set and workflows* across every module, running on their Mac with one command and no cloud services.
+The owner runs a small Vietnamese fashion/accessories shop on a hosted retail POS (KiotViet). They want an **original, self-hosted** application that matches that product's *feature set and workflows* across every module, running on their Mac with one command and no cloud services.
 
 The authoritative requirement list is `docs/requirements.md` (the owner's full brief, copied verbatim). This document records intent, decisions, and what was learned from inspecting the hosted app; where they conflict, the owner's brief wins unless marked below.
 
