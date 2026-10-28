@@ -28,6 +28,10 @@ import { StorefrontPage } from './online/StorefrontPage';
 import { EInvoicesPage } from './tax/EInvoicesPage';
 import { TaxSettingsPage } from './tax/TaxSettingsPage';
 import { TaxDeclarationPage } from './tax/TaxDeclarationPage';
+import { EmployeesPage } from './staff/EmployeesPage';
+import { SchedulePage } from './staff/SchedulePage';
+import { TimesheetsPage } from './staff/TimesheetsPage';
+import { StaffSettingsPage } from './staff/StaffSettingsPage';
 import { makeStockDocListPage } from './stock/StockDocListPage';
 import { makeStockDocEditor } from './stock/StockDocEditor';
 import { STOCK_DOCS, type StockDocKind } from './stock/configs';
@@ -76,5 +80,9 @@ export const PAGES: Record<string, FC> = {
   '/tax/settings': TaxSettingsPage,
   '/tax/e-invoices': EInvoicesPage,
   '/tax/declaration': TaxDeclarationPage,
+  '/employees': EmployeesPage,
+  '/work-schedule': () => <SchedulePage />,
+  '/timesheets': () => <TimesheetsPage />,
+  '/staff-settings': StaffSettingsPage,
   ...stockPages,
 };
