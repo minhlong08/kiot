@@ -85,3 +85,39 @@ test('print data has the amount in words', async () => {
   const v = (await req('POST', '/api/cash-vouchers', { kind: 'out', fundId: cashFundId, amount: 1_200_000, categoryId: catOut, counterpartyType: 'other', counterpartyName: 'Điện lực' })).json();
   expect((await req('GET', `/api/cash-vouchers/${v.id}/print`)).json().amountInWords).toBe('Một triệu hai trăm nghìn đồng');
 });
+
+// ── review fixes
+test('concurrent cancels of a manual receipt with postToDebt restore the debt once', async () => {
+  const c = await makeCustomer(t.prisma, { name: 'Khách hủy đôi' });
+  await postPartnerLedger(t.prisma, { partnerType: 'customer', partnerId: c.id, amount: 400_000, docType: 'test', docId: 0, docCode: 'T' });
+  const v = (await req('POST', '/api/cash-vouchers', { kind: 'in', fundId: cashFundId, amount: 400_000, categoryId: catIn, counterpartyType: 'customer', counterpartyId: c.id, counterpartyName: c.name, postToDebt: true })).json();
+  const res = await Promise.all([req('POST', `/api/cash-vouchers/${v.id}/cancel`, {}), req('POST', `/api/cash-vouchers/${v.id}/cancel`, {})]);
+  expect(res.map(r => r.statusCode).sort()).toEqual([200, 409]);
+  expect((await t.prisma.customer.findUniqueOrThrow({ where: { id: c.id } })).debt).toBe(400_000);
+});
+
+test('editing a fund without sending openingBalance keeps it', async () => {
+  const f = (await req('POST', '/api/cash-funds', { type: 'bank', name: 'ACB', openingBalance: 7_000_000 })).json();
+  await req('PUT', `/api/cash-funds/${f.id}`, { accountNumber: '999' });
+  const after = await t.prisma.cashFund.findUniqueOrThrow({ where: { id: f.id } });
+  expect([after.openingBalance, after.accountNumber, after.name]).toEqual([7_000_000, '999', 'ACB']);
+});
+
+test('export needs cashbook.view as well as cashbook.export', async () => {
+  const b = await t.prisma.branch.findFirstOrThrow({ where: { code: 'CN01' } });
+  const role = await t.prisma.role.create({ data: { name: 'Chỉ xuất', permissions: { create: [{ key: 'cashbook.export' }] } } });
+  await t.prisma.user.create({ data: { username: 'exportonly', fullName: 'E', passwordHash: bcrypt.hashSync('pass123', 4), roleId: role.id, branchAccess: { create: [{ branchId: b.id }] } } });
+  const cookie = await t.login('exportonly', 'pass123');
+  expect((await req('GET', '/api/cash-vouchers/export', undefined, cookie)).statusCode).toBe(403);
+});
+
+test('a POS default fund or the last active cash fund cannot be deactivated or deleted', async () => {
+  const ew = (await req('POST', '/api/cash-funds', { type: 'ewallet', name: 'Ví mặc định' })).json();
+  await req('PUT', '/api/settings', { pos: { defaultFundIds: { ewallet: ew.id } } });
+  expect((await req('DELETE', `/api/cash-funds/${ew.id}`)).json().error.code).toBe('FUND_IN_USE');
+  expect((await req('PUT', `/api/cash-funds/${ew.id}`, { isActive: false })).json().error.code).toBe('FUND_IN_USE');
+  await req('PUT', '/api/settings', { pos: { defaultFundIds: { ewallet: null } } });
+  const cashFunds = await t.prisma.cashFund.findMany({ where: { type: 'cash', isActive: true } });
+  expect(cashFunds).toHaveLength(1);
+  expect((await req('PUT', `/api/cash-funds/${cashFunds[0].id}`, { isActive: false })).json().error.code).toBe('FUND_IN_USE');
+});

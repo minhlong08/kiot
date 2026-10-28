@@ -8,7 +8,7 @@ import { sendXlsx } from '../lib/excel';
 import { AppError, badRequest, conflict, notFound } from '../lib/errors';
 import { audit } from '../services/audit';
 import { getSettings } from '../services/settings';
-import { cancelCashBySource, recordCash } from '../services/cash';
+import { recordCash } from '../services/cash';
 import { postPartnerLedger, reversePartnerDocument } from '../services/partnerLedger';
 import { nextCode } from '../services/codes';
 import { idOf } from './purchasing';
@@ -56,11 +56,22 @@ export async function cashbookRoutes(app: FastifyInstance) {
       return f;
     });
   });
+  /** POS sales and refunds post to these funds; switching them off would make every such payment fail. */
+  async function assertFundRemovable(tx: Tx, f: { id: number; type: string }) {
+    const pos = (await getSettings(tx)).pos.defaultFundIds;
+    if (Object.values(pos).includes(f.id)) throw conflict('FUND_IN_USE', 'Quỹ đang là quỹ mặc định khi bán hàng (Thiết lập › Bán hàng)');
+    if (f.type === 'cash' && (await tx.cashFund.count({ where: { type: 'cash', isActive: true, id: { not: f.id } } })) === 0) throw conflict('FUND_IN_USE', 'Cần ít nhất một quỹ tiền mặt đang hoạt động');
+  }
   app.put('/api/cash-funds/:id', { preHandler: requirePermission('cashbook.edit', 'settings.edit') }, async req => {
-    const data = fundInput.parse(req.body);
+    // Partial: fields the client did not send (e.g. openingBalance hidden from users without cashbook.view) stay as they are.
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const parsed = fundInput.partial().parse(body);
+    const data = Object.fromEntries(Object.entries(parsed).filter(([k]) => k in body)) as typeof parsed;
+    if (!hasPerm(user(req), 'cashbook.view')) delete data.openingBalance;
     return db.$transaction(async tx => {
       const before = await tx.cashFund.findUnique({ where: { id: idOf(req) } });
       if (!before) throw notFound('Quỹ tiền');
+      if (before.isActive && data.isActive === false) await assertFundRemovable(tx, { id: before.id, type: data.type ?? before.type });
       const f = await tx.cashFund.update({ where: { id: before.id }, data });
       await audit(tx, req.auditCtx, { action: 'update', entity: 'CashFund', entityId: f.id, entityCode: f.name, summary: `Sửa quỹ ${f.name}`, before, after: f });
       return f;
@@ -70,6 +81,7 @@ export async function cashbookRoutes(app: FastifyInstance) {
     db.$transaction(async tx => {
       const f = await tx.cashFund.findUnique({ where: { id: idOf(req) } });
       if (!f) throw notFound('Quỹ tiền');
+      if (f.isActive) await assertFundRemovable(tx, f);
       if (await tx.cashVoucher.count({ where: { fundId: f.id } })) {
         await tx.cashFund.update({ where: { id: f.id }, data: { isActive: false } });
         await audit(tx, req.auditCtx, { action: 'update', entity: 'CashFund', entityId: f.id, entityCode: f.name, summary: `Ngừng sử dụng quỹ ${f.name}` });
@@ -164,6 +176,7 @@ export async function cashbookRoutes(app: FastifyInstance) {
   });
 
   app.get('/api/cash-vouchers/export', { preHandler: requirePermission('cashbook.export') }, async (req, reply) => {
+    if (!hasPerm(user(req), 'cashbook.view')) throw new AppError(403, 'FORBIDDEN', 'Không có quyền xem sổ quỹ');
     const raw = req.query as Record<string, unknown>;
     const from = dateParam(raw.from), to = dateParam(raw.to);
     const s = await scope(req);
@@ -240,12 +253,14 @@ export async function cashbookRoutes(app: FastifyInstance) {
     if (v.status === 'cancelled') throw conflict('ALREADY_CANCELLED', 'Phiếu đã hủy');
     const ctx = cashCtxOf(req);
     await db.$transaction(async tx => {
+      // Claim the voucher first so a concurrent cancel cannot reverse its ledger rows a second time.
+      if (!(await tx.cashVoucher.updateMany({ where: { id: v.id, status: 'completed' }, data: { status: 'cancelled' } })).count) throw conflict('ALREADY_CANCELLED', 'Phiếu đã hủy');
       if (v.sourceType === 'transfer') {
         const pair = await tx.cashVoucher.findMany({ where: { sourceType: 'transfer', sourceCode: v.sourceCode, status: 'completed' } });
         await tx.cashVoucher.updateMany({ where: { id: { in: pair.map(p => p.id) } }, data: { status: 'cancelled' } });
         await audit(tx, ctx, { action: 'cancel', entity: 'CashVoucher', entityId: v.id, entityCode: v.code, summary: `Hủy chuyển quỹ ${v.sourceCode}` });
       } else {
-        await cancelCashBySource(tx, ctx, 'manual', v.id);
+        await audit(tx, ctx, { action: 'cancel', entity: 'CashVoucher', entityId: v.id, entityCode: v.code, summary: `Hủy phiếu ${v.code}` });
         await reversePartnerDocument(tx, 'manualVoucher', v.id, 'manualVoucher_cancel');
       }
     });
