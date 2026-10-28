@@ -12,6 +12,7 @@ import { IncomingInvoicesPage } from './purchasing/IncomingInvoicesPage';
 import { ServicePurchasesPage } from './purchasing/ServicePurchasesPage';
 import { CustomersPage } from './customers/CustomersPage';
 import { CustomerGroupsPage } from './customers/CustomerGroupsPage';
+import { PromotionsPage } from './promotions/PromotionsPage';
 import { makeStockDocListPage } from './stock/StockDocListPage';
 import { makeStockDocEditor } from './stock/StockDocEditor';
 import { STOCK_DOCS, type StockDocKind } from './stock/configs';
@@ -44,5 +45,6 @@ export const PAGES: Record<string, FC> = {
   '/service-purchases': ServicePurchasesPage,
   '/customers': CustomersPage,
   '/customer-groups': CustomerGroupsPage,
+  '/promotions': PromotionsPage,
   ...stockPages,
 };
