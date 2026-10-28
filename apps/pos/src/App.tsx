@@ -13,6 +13,11 @@ import { Modal } from './components/ui';
 
 type Catalog = { serverTime: string; products: CatalogProduct[] };
 
+function toCartLine(l: { productId: number; unitId: number | null; qty: number; price: number; discount: number; note: string; productCode: string; productName: string; unit: string }, cat: CatalogProduct[]) {
+  const p = cat.find(x => x.id === l.productId);
+  return { key: `${l.productId}:${l.unitId ?? 0}`, productId: l.productId, unitId: l.unitId, conversion: p?.units.find(u => u.id === l.unitId)?.conversion ?? 1, code: l.productCode, name: l.productName, unitName: l.unit, groupId: p?.groupId ?? null, qty: l.qty, price: l.price, listPrice: l.price, discount: l.discount, note: l.note, loyaltyEnabled: p?.loyaltyEnabled ?? true, fixedPoints: p?.points ?? null, imageUrl: p?.imageUrl ?? null };
+}
+
 async function syncCatalog(): Promise<CatalogProduct[]> {
   const d = await db();
   const since = await getMeta<string>('catalogSince');
@@ -66,6 +71,7 @@ export function App() {
         setBoot(b); bootRef.current = b;
         const [cat, cust] = await Promise.all([syncCatalog(), syncCustomers()]);
         setCatalog(cat); setCustomers(cust);
+        await handleLoadRequest(cat, cust);
         const s = await api<Shift | null>('/shifts/current').catch(() => null);
         setShift(s);
         if (!s) setAskShift(true);
@@ -89,6 +95,16 @@ export function App() {
     }, 5 * 60_000);
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); clearInterval(timer); clearInterval(refresh); };
   }, [refreshQueue, runSync]);
+
+  /** Requests handed over by the admin app ("Sao chép", "Lập hóa đơn"). */
+  async function handleLoadRequest(cat: CatalogProduct[], cust: PosCustomer[]) {
+    let req: { type: 'copy'; invoiceId: number } | { type: 'order'; orderId: number } | null = null;
+    try { req = JSON.parse(localStorage.getItem('pd.pos.load') ?? 'null'); localStorage.removeItem('pd.pos.load'); } catch { /* ignore */ }
+    if (!req) return;
+    if (req.type === 'order') return loadOrder(req.orderId, cat, cust);
+    const d = await api<{ customerId: number | null; priceBookId: number | null; note: string; lines: { productId: number; unitId: number | null; qty: number; price: number; discount: number; note: string; productCode: string; productName: string; unit: string }[] }>(`/invoices/${req.invoiceId}/copy`);
+    setLoadRequest({ cart: { ...newCart(0, 'Sao chép'), customerId: d.customerId, priceBookId: d.priceBookId, note: d.note, lines: d.lines.map(l => toCartLine(l, cat)) }, extras: { customer: cust.find(c => c.id === d.customerId) ?? null } });
+  }
 
   async function printInvoice(id: number) {
     const b = bootRef.current!;
@@ -123,16 +139,13 @@ export function App() {
     }
   }
 
-  async function loadOrder(id: number) {
+  async function loadOrder(id: number, cat = catalog, cust = customers) {
     const d = await api<{ orderId: number; orderCode: string; customerId: number | null; depositAvailable: number; lines: { productId: number; unitId: number | null; qty: number; price: number; discount: number; productCode: string; productName: string; unit: string }[] }>(`/customer-orders/${id}/invoice-draft`);
     const cart: Cart = {
       ...newCart(0, d.orderCode), customerId: d.customerId, orderId: d.orderId,
-      lines: d.lines.map(l => {
-        const p = catalog.find(x => x.id === l.productId);
-        return { key: `${l.productId}:${l.unitId ?? 0}`, productId: l.productId, unitId: l.unitId, conversion: p?.units.find(u => u.id === l.unitId)?.conversion ?? 1, code: l.productCode, name: l.productName, unitName: l.unit, groupId: p?.groupId ?? null, qty: l.qty, price: l.price, listPrice: l.price, discount: l.discount, note: '', loyaltyEnabled: p?.loyaltyEnabled ?? true, fixedPoints: p?.points ?? null, imageUrl: p?.imageUrl ?? null };
-      }),
+      lines: d.lines.map(l => toCartLine({ ...l, note: '' }, cat)),
     };
-    setLoadRequest({ cart, extras: { depositAvailable: d.depositAvailable, customer: customers.find(c => c.id === d.customerId) ?? null } });
+    setLoadRequest({ cart, extras: { depositAvailable: d.depositAvailable, customer: cust.find(c => c.id === d.customerId) ?? null } });
   }
 
   if (fatal) return <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center"><p>{fatal}</p><a className="btn-primary" href="/login?next=/sale/">Đăng nhập</a></div>;

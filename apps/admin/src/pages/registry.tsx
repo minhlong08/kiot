@@ -14,6 +14,10 @@ import { CustomersPage } from './customers/CustomersPage';
 import { CustomerGroupsPage } from './customers/CustomerGroupsPage';
 import { PromotionsPage } from './promotions/PromotionsPage';
 import { MessagingPage } from './messaging/MessagingPage';
+import { InvoicesPage } from './sales/InvoicesPage';
+import { ReturnsPage } from './sales/ReturnsPage';
+import { CustomerOrdersPage } from './sales/CustomerOrdersPage';
+import { CustomerOrderEditor } from './sales/CustomerOrderEditor';
 import { makeStockDocListPage } from './stock/StockDocListPage';
 import { makeStockDocEditor } from './stock/StockDocEditor';
 import { STOCK_DOCS, type StockDocKind } from './stock/configs';
@@ -48,5 +52,9 @@ export const PAGES: Record<string, FC> = {
   '/customer-groups': CustomerGroupsPage,
   '/promotions': PromotionsPage,
   '/messaging': MessagingPage,
+  '/invoices': InvoicesPage,
+  '/returns': ReturnsPage,
+  '/customer-orders': CustomerOrdersPage,
+  '/customer-orders/$id': CustomerOrderEditor,
   ...stockPages,
 };
