@@ -12,6 +12,7 @@ import { isVariantMaster } from '../services/products';
 import { idOf } from './purchasing';
 
 import { ensureSalesChannels as ensureChannels } from '../services/channels';
+import { activeTemplates } from './printTemplates';
 export { ensureChannels };
 
 /** Cash drawer movement of one user in cash funds since a moment (for shift close). */
@@ -39,6 +40,7 @@ export async function posRoutes(app: FastifyInstance) {
     const users = await db.user.findMany({ where: { isActive: true }, select: { id: true, fullName: true } });
     return {
       settings, branch: { id: branch.id, name: branch.name, address: branch.address, phone: branch.phone }, funds, channels, groups, users,
+      printTemplates: (await activeTemplates(db)).filter(t => t.kind === 'invoice').map(({ size, body }) => ({ size, body })),
       priceBooks: books.map(b => ({ id: b.id, name: b.name, customerGroupIds: JSON.parse(b.customerGroupIds) as number[], allowOutsideItems: b.allowOutsideItems })),
       promotions,
       user: { id: u.id, fullName: u.fullName, isAdmin: u.isAdmin, maxDiscountPercent: u.maxDiscountPercent, canEditPrice: hasPerm(u, 'pos.editPrice'), canSeeCost: hasPerm(u, 'cost.view'), permissions: [...u.permissions] },

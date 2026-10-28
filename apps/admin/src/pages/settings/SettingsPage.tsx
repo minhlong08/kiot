@@ -11,6 +11,7 @@ import { OrderSettings } from './OrderSettings';
 import { CustomerSettings } from './CustomerSettings';
 import { CashbookSettings } from './CashbookSettings';
 import { PosSettings } from './PosSettings';
+import { PrintTemplateSettings } from './PrintTemplateSettings';
 
 export type SettingsSection = { key: string; labelKey: string; component: FC };
 
@@ -25,6 +26,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { key: 'customers', labelKey: 'settings.customers', component: CustomerSettings },
   { key: 'cashbook', labelKey: 'settings.cashbook', component: CashbookSettings },
   { key: 'pos', labelKey: 'settings.pos', component: PosSettings },
+  { key: 'print', labelKey: 'settings.print', component: PrintTemplateSettings },
 ];
 
 export function SettingsPage() {

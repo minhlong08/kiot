@@ -1097,3 +1097,13 @@ model Paysheet {
 
   @@unique([periodId, employeeId])
 }
+
+model PrintTemplate {
+  id        Int      @id @default(autoincrement())
+  kind      String
+  size      String
+  body      String
+  updatedAt DateTime @default(now())
+
+  @@unique([kind, size])
+}

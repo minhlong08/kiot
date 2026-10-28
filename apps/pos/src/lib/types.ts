@@ -11,5 +11,7 @@ export type Bootstrap = {
   promotions: Promotion[];
   user: { id: number; fullName: string; isAdmin: boolean; maxDiscountPercent: number; canEditPrice: boolean; canSeeCost: boolean; permissions: string[] };
   serverTime: string;
+  /** Active invoice templates per paper size (older caches may lack them: defaults apply). */
+  printTemplates?: { size: string; body: string }[];
 };
 export type PosCustomer = { id: number; code: string; name: string; phone: string; searchText?: string; groupId: number | null; groupName: string; discountPercent: number; debt: number; points: number };

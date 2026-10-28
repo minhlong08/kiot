@@ -110,7 +110,8 @@ export function App() {
     const b = bootRef.current!;
     const d = await api<ReceiptData & { qrPayload: string | null }>(`/invoices/${id}/print`);
     const qrDataUrl = d.qrPayload ? await QRCode.toDataURL(d.qrPayload, { margin: 1, width: 240 }) : null;
-    printHtml(receiptHtml({ ...d, qrDataUrl }, b.settings.pos.receiptTemplate));
+    const size = b.settings.pos.receiptTemplate;
+    printHtml(receiptHtml({ ...d, qrDataUrl }, size, b.printTemplates?.find(t => t.size === size)?.body));
   }
 
   async function submit(input: object, cart: Cart): Promise<SubmitResult> {

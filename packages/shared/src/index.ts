@@ -22,3 +22,5 @@ export * from './words';
 export * from './tax';
 export * from './staff';
 export * from './reports';
+export * from './template';
+export * from './printTemplates';
