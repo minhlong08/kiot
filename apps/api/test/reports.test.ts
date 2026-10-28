@@ -52,4 +52,6 @@ test('profit report: cost and profit for cost.view only — in the report and in
   expect(Object.keys(sheet[0])).toContain('Doanh thu');
   expect(Object.keys(sheet[0])).not.toContain('Giá vốn');
   expect((await req('GET', '/api/reports/no-such-report')).statusCode).toBe(404);
+  // The P&L is all about cost and profit: no cost.view, no P&L.
+  expect((await req('GET', '/api/reports/finance-pnl?year=2026', undefined, cookie)).statusCode).toBe(403);
 });
