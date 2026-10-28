@@ -29,6 +29,8 @@ function printTable(r: Report, subtitle: string) {
   const total = Object.keys(r.totals).length ? `<tr class="t">${r.columns.map((c, i) => `<td class="n">${i === 0 ? 'Tổng cộng' : esc(cell(c, r.totals[c.key]))}</td>`).join('')}</tr>` : '';
   const html = `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:A4 landscape;margin:10mm}body{font-family:system-ui;font-size:11px}h1{font-size:16px;margin:0}table{width:100%;border-collapse:collapse;margin-top:8px}td,th{border:1px solid #bbb;padding:3px 5px}.n{text-align:right}.t td{font-weight:bold;background:#f1f5f9}</style></head><body><h1>${esc(r.title)}</h1><div>${esc(subtitle)}</div><table><thead><tr>${head}</tr></thead><tbody>${body}${total}</tbody></table></body></html>`;
   const f = document.createElement('iframe');
+  // No allow-scripts: printed HTML (store templates, customer data) can never run code in the app's origin.
+  f.setAttribute('sandbox', 'allow-same-origin allow-modals');
   Object.assign(f.style, { position: 'fixed', width: '0', height: '0', border: '0' });
   document.body.appendChild(f);
   f.contentDocument!.open(); f.contentDocument!.write(html); f.contentDocument!.close();

@@ -58,7 +58,7 @@ Dùng PostgreSQL ngoài Docker: đặt `DATABASE_URL=postgresql://user:pass@host
 
 - **Thiết lập › Sao lưu & khôi phục** (chỉ quản trị viên): tải toàn bộ dữ liệu về một file JSON, khôi phục từ file (toàn bộ hoặc không gì cả), hoặc xóa và tạo lại dữ liệu mẫu (gõ `XOA DU LIEU` để xác nhận).
 - Ảnh hàng hóa / logo nằm trong `data/uploads` — hãy sao lưu thư mục này riêng.
-- Bản sao lưu chỉ khôi phục vào cùng phiên bản cấu trúc dữ liệu.
+- Bản sao lưu chỉ khôi phục vào cùng phiên bản cấu trúc dữ liệu; file khôi phục tối đa 1 GB.
 
 *Admins can download a full JSON backup, restore it atomically, or reset to demo data. Uploaded images live in `data/uploads` and are not part of the JSON.*
 
@@ -115,5 +115,6 @@ pnpm e2e         # Playwright: dùng cơ sở dữ liệu riêng data/e2e.db, t�
 ## Giới hạn đã biết · Known limitations
 
 - Không có kết nối thật với hãng vận chuyển, SMS/Zalo, hóa đơn điện tử, sàn TMĐT hay ngân hàng (chỉ adapter giả lập).
-- Trên PostgreSQL, tìm kiếm theo mã chứng từ phân biệt chữ hoa/thường.
+- Trên PostgreSQL, một số ô tìm kiếm theo tên/ghi chú (vận đơn, sổ quỹ, hóa đơn điện tử, đơn online, khuyến mại) phân biệt chữ hoa/thường.
+- PostgreSQL ngoài Docker: chạy server bằng `npx tsx src/server.ts` trong `apps/api` (đừng dùng `pnpm start`/`pnpm install` sau khi đã sinh client Postgres — chúng sinh lại client SQLite).
 - Các điểm nhỏ đã ghi nhận nhưng hoãn lại được liệt kê theo từng giai đoạn trong [`docs/superpowers/decisions.md`](docs/superpowers/decisions.md).

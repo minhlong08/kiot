@@ -20,8 +20,15 @@ test('dashboard shows today\'s sale; end of day lists cash; export downloads; P&
   await page.goto('/reports/end-of-day');
   await expect(page.getByRole('row', { name: /Bán hàng Tiền mặt/ })).toBeVisible();
 
-  // Sales by time: export.
+  // Sales by time: print goes through a sandboxed frame without errors; then export.
   await page.goto('/reports/sales');
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.getByRole('button', { name: 'In', exact: true }).click();
+  const frame = page.locator('iframe[sandbox]');
+  await expect(frame).toHaveCount(1);
+  await expect(frame.contentFrame().locator('h1')).toHaveText('Bán hàng theo thời gian');
+  expect(errors).toEqual([]);
   await expect(page.getByRole('columnheader', { name: 'Doanh thu thuần' })).toBeVisible();
   const [file] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Xuất file' }).click()]);
   expect(file.suggestedFilename()).toBe('sales-by-time.xlsx');

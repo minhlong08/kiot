@@ -13,7 +13,9 @@ import { seedOnline } from '../seed/online';
 import { seedStaff } from '../seed/staff';
 
 const adminOnly = (req: FastifyRequest) => { if (!user(req).isAdmin) throw new AppError(403, 'FORBIDDEN', 'Chỉ quản trị viên được sao lưu / khôi phục dữ liệu'); };
-const docSchema = z.object({ app: z.string(), version: z.string(), createdAt: z.string(), tables: z.record(z.string(), z.array(z.record(z.string(), z.unknown()))) });
+/** Restores up to 1 GB of JSON. Only the document's shape is checked here; Prisma rejects bad rows inside the transaction. */
+export const MAX_RESTORE_BYTES = 1024 * 1024 * 1024;
+const docSchema = z.object({ app: z.string(), version: z.string(), createdAt: z.string(), tables: z.record(z.string(), z.array(z.unknown())) });
 
 /** Full-database backup/restore (JSON, provider-independent) and demo reset. Uploaded images live in data/uploads and are not included. */
 export async function systemRoutes(app: FastifyInstance) {
@@ -25,9 +27,9 @@ export async function systemRoutes(app: FastifyInstance) {
     const stamp = doc.createdAt.slice(0, 16).replace(/[-:T]/g, '');
     return reply.header('content-disposition', `attachment; filename="phuongdong-backup-${stamp}.json"`).type('application/json').send(doc);
   });
-  app.post('/api/system/restore', { bodyLimit: 200 * 1024 * 1024 }, async req => {
+  app.post('/api/system/restore', { bodyLimit: MAX_RESTORE_BYTES }, async req => {
     adminOnly(req);
-    const doc = docSchema.parse(req.body) as BackupDoc;
+    const doc = docSchema.parse(req.body) as unknown as BackupDoc;
     if (doc.app !== BACKUP_APP || doc.version !== BACKUP_VERSION) throw new AppError(400, 'BACKUP_VERSION', 'Bản sao lưu không thuộc phiên bản dữ liệu này, không thể khôi phục');
     try {
       await importAll(db, doc);

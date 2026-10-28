@@ -36,6 +36,8 @@ function printLabels(items: Item[], size: Size, storeName: string) {
     .price { font-size: 9pt; font-weight: 700; } svg { max-width: 100%; height: ${Math.max(8, s.h - 14)}mm; }
   </style></head><body><div class="sheet">${labels.map(l => `<div class="label"><div class="store">${esc(storeName)}</div><div class="name">${esc(l.name)}</div>${svgFor(l.barcode || l.code)}<div class="price">${formatVnd(l.price)} đ</div></div>`).join('')}</div></body></html>`;
   const frame = document.createElement('iframe');
+  // No allow-scripts: printed HTML (store templates, customer data) can never run code in the app's origin.
+  frame.setAttribute('sandbox', 'allow-same-origin allow-modals');
   frame.style.position = 'fixed';
   frame.style.width = '0';
   frame.style.height = '0';

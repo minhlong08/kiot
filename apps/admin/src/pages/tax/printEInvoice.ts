@@ -24,6 +24,8 @@ export async function printEInvoice(id: number) {
   <p>Số tiền bằng chữ: <i>${esc(amountInWords(e.total))}</i></p>
   ${e.lookupCode ? `<p class="muted">Mã tra cứu: ${esc(e.lookupCode)}</p>` : ''}</body></html>`;
   const frame = document.createElement('iframe');
+  // No allow-scripts: printed HTML (store templates, customer data) can never run code in the app's origin.
+  frame.setAttribute('sandbox', 'allow-same-origin allow-modals');
   Object.assign(frame.style, { position: 'fixed', width: '0', height: '0', border: '0' });
   document.body.appendChild(frame);
   frame.contentDocument!.open(); frame.contentDocument!.write(html); frame.contentDocument!.close();
