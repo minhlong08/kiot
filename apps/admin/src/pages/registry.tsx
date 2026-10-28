@@ -4,6 +4,7 @@ import { SettingsPage } from './settings/SettingsPage';
 import { AuditLogPage } from './settings/AuditLogPage';
 import { ProductsPage } from './products/ProductsPage';
 import { PriceBooksPage } from './priceBooks/PriceBooksPage';
+import { SuppliersPage } from './suppliers/SuppliersPage';
 import { makeStockDocListPage } from './stock/StockDocListPage';
 import { makeStockDocEditor } from './stock/StockDocEditor';
 import { STOCK_DOCS, type StockDocKind } from './stock/configs';
@@ -25,5 +26,6 @@ export const PAGES: Record<string, FC> = {
   '/settings/audit-log': AuditLogPage,
   '/products': ProductsPage,
   '/price-books': PriceBooksPage,
+  '/suppliers': SuppliersPage,
   ...stockPages,
 };

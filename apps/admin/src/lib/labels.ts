@@ -20,4 +20,6 @@ export const PRODUCT_TYPE_LABELS: Record<string, string> = { goods: 'Hàng hóa 
 Object.assign(ENTITY_LABELS, {
   Product: 'Hàng hóa', ProductGroup: 'Nhóm hàng', Brand: 'Thương hiệu', Location: 'Vị trí', PriceBook: 'Bảng giá',
   StockTake: 'Kiểm kho', StockIssue: 'Xuất kho', Transfer: 'Chuyển hàng',
+  Supplier: 'Nhà cung cấp', SupplierGroup: 'Nhóm NCC', PurchaseOrder: 'Đặt hàng nhập', PurchaseReceipt: 'Nhập hàng', PurchaseReturn: 'Trả hàng nhập',
+  IncomingInvoice: 'Hóa đơn đầu vào', ServicePurchase: 'Mua dịch vụ', CashVoucher: 'Sổ quỹ',
 });
