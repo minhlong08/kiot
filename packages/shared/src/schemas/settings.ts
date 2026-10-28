@@ -43,6 +43,13 @@ export const settingsSchema = z.object({
     pointValueVnd: z.number().int().min(0).default(1000),
     debtLimit: z.number().int().min(0).default(0),
   }).prefault({}),
+  pos: z.object({
+    defaultFundIds: z.object({ cash: z.number().int().nullable().default(null), transfer: z.number().int().nullable().default(null), card: z.number().int().nullable().default(null), ewallet: z.number().int().nullable().default(null) }).prefault({}),
+    /** Bank account shown as VietQR for transfers. */
+    bankQr: z.object({ bankBin: z.string().default(''), accountNumber: z.string().default(''), accountName: z.string().default('') }).prefault({}),
+    receiptTemplate: z.enum(['58', '80', 'A4']).default('80'),
+    printAfterPayment: z.boolean().default(true),
+  }).prefault({}),
   tax: z.object({
     mode: z.enum(['household', 'company']).default('household'),
     defaultVatRate: z.number().min(0).max(100).default(8),

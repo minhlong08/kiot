@@ -714,3 +714,200 @@ model MessageLog {
 
   @@index([createdAt])
 }
+
+// ───────────── Sales: invoices, returns, customer orders, shifts (M5) ─────────────
+
+model Invoice {
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  clientUuid     String?   @unique
+  branchId       Int
+  customerId     Int?
+  sellerId       Int
+  createdById    Int
+  channel        String    @default("store")
+  priceBookId    Int?
+  status         String    @default("completed")
+  subtotal       Int       @default(0)
+  promoDiscount  Int       @default(0)
+  invoiceDiscount Int      @default(0)
+  voucherCode    String?
+  voucherDiscount Int      @default(0)
+  pointsUsed     Int       @default(0)
+  pointsValue    Int       @default(0)
+  otherIncome    Int       @default(0)
+  roundingAdjust Int       @default(0)
+  total          Int       @default(0)
+  paid           Int       @default(0)
+  change         Int       @default(0)
+  debt           Int       @default(0)
+  costTotal      Int       @default(0)
+  pointsEarned   Int       @default(0)
+  returnedTotal  Int       @default(0)
+  promotions     String    @default("[]")
+  isDelivery     Boolean   @default(false)
+  note           String    @default("")
+  orderId        Int?
+  shiftId        Int?
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+  cancelledAt    DateTime?
+  lines          InvoiceLine[]
+  payments       InvoicePayment[]
+
+  @@index([branchId, createdAt])
+  @@index([customerId])
+  @@index([status])
+}
+
+model InvoiceLine {
+  id            Int     @id @default(autoincrement())
+  invoiceId     Int
+  invoice       Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId     Int
+  unitId        Int?
+  conversion    Int     @default(1)
+  qty           Int
+  price         Int
+  discount      Int     @default(0)
+  promoDiscount Int     @default(0)
+  amount        Int
+  cost          Int     @default(0)
+  returnedQty   Int     @default(0)
+  note          String  @default("")
+  isGift        Boolean @default(false)
+
+  @@index([invoiceId])
+  @@index([productId])
+}
+
+model InvoicePayment {
+  id            Int     @id @default(autoincrement())
+  invoiceId     Int
+  invoice       Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  method        String
+  amount        Int
+  fundId        Int?
+  cashVoucherId Int?
+
+  @@index([invoiceId])
+}
+
+model InvoiceDelivery {
+  invoiceId     Int      @id
+  receiverName  String
+  receiverPhone String
+  address       String
+  ward          String   @default("")
+  province      String   @default("")
+  partnerId     Int?
+  fee           Int      @default(0)
+  cod           Int      @default(0)
+  weight        Int      @default(0)
+  note          String   @default("")
+  status        String   @default("pending")
+  trackingCode  String   @default("")
+  updatedAt     DateTime @default(now())
+}
+
+model SaleReturn {
+  id                Int      @id @default(autoincrement())
+  code              String   @unique
+  invoiceId         Int?
+  branchId          Int
+  customerId        Int?
+  createdById       Int
+  status            String   @default("completed")
+  subtotal          Int      @default(0)
+  returnFee         Int      @default(0)
+  total             Int      @default(0)
+  refunded          Int      @default(0)
+  toDebt            Int      @default(0)
+  pointsReversed    Int      @default(0)
+  costTotal         Int      @default(0)
+  refundMethod      String   @default("cash")
+  fundId            Int?
+  exchangeInvoiceId Int?
+  note              String   @default("")
+  createdAt         DateTime @default(now())
+  lines             SaleReturnLine[]
+
+  @@index([invoiceId])
+  @@index([branchId, createdAt])
+}
+
+model SaleReturnLine {
+  id            Int        @id @default(autoincrement())
+  returnId      Int
+  ret           SaleReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  invoiceLineId Int?
+  productId     Int
+  unitId        Int?
+  conversion    Int        @default(1)
+  qty           Int
+  price         Int
+  amount        Int
+  cost          Int        @default(0)
+
+  @@index([returnId])
+}
+
+model CustomerOrder {
+  id            Int       @id @default(autoincrement())
+  code          String    @unique
+  branchId      Int
+  customerId    Int?
+  createdById   Int
+  sellerId      Int?
+  status        String    @default("draft")
+  channel       String    @default("store")
+  subtotal      Int       @default(0)
+  discount      Int       @default(0)
+  total         Int       @default(0)
+  deposit       Int       @default(0)
+  depositUsed   Int       @default(0)
+  depositFundId Int?
+  expectedAt    DateTime?
+  note          String    @default("")
+  isDelivery    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  lines         CustomerOrderLine[]
+
+  @@index([branchId, createdAt])
+}
+
+model CustomerOrderLine {
+  id           Int           @id @default(autoincrement())
+  orderId      Int
+  order        CustomerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    Int
+  unitId       Int?
+  conversion   Int           @default(1)
+  qty          Int
+  price        Int
+  discount     Int           @default(0)
+  deliveredQty Int           @default(0)
+
+  @@index([orderId])
+}
+
+model Shift {
+  id           Int       @id @default(autoincrement())
+  branchId     Int
+  userId       Int
+  openedAt     DateTime  @default(now())
+  openingCash  Int       @default(0)
+  closedAt     DateTime?
+  countedCash  Int?
+  expectedCash Int?
+  note         String    @default("")
+
+  @@index([userId, closedAt])
+}
+
+model SalesChannel {
+  id       Int     @id @default(autoincrement())
+  code     String  @unique
+  name     String  @unique
+  isActive Boolean @default(true)
+}
