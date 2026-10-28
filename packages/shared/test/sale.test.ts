@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { computeSale, discountLimitExceeded, type SaleContext, type SaleInput, type SaleLineInput, type Promotion } from '../src';
+import { computeSale, discountLimitExceeded, netUnitPrice, type SaleContext, type SaleInput, type SaleLineInput, type Promotion } from '../src';
 
 const ctx = (o: Partial<SaleContext> = {}): SaleContext => ({ promotions: [], promoCtx: { at: new Date('2026-10-28T05:00:00Z'), branchId: 1, customerGroupId: null }, pointValueVnd: 1000, vndPerPoint: 10_000, rounding: 'none', loyaltyEnabled: true, ...o });
 const ln = (key: string, qty: number, price: number, discount = 0, o: Partial<SaleLineInput> = {}): SaleLineInput => ({ key, productId: Number(key.charCodeAt(0)), unitId: null, conversion: 1, groupId: null, qty, price, discount, loyaltyEnabled: true, fixedPoints: null, ...o });
@@ -56,4 +56,13 @@ test('gift lines are free and ignored by promotions', () => {
   const r = computeSale(sale([ln('a', 1, 500_000), ln('g', 1, 0, 0, { isGift: true })]), ctx());
   expect(r.lines[1].amount).toBe(0);
   expect(r.subtotal).toBe(500_000);
+});
+
+test('exchange credit above the new total comes back as change, like cash', () => {
+  const r = computeSale(sale([ln('a', 1, 300_000)], { payments: [{ method: 'exchange', amount: 500_000 }] }), ctx());
+  expect(r).toMatchObject({ paid: 500_000, change: 200_000, nonCashOverpay: false });
+});
+
+test('net unit price spreads invoice-level discounts by line value', () => {
+  expect(netUnitPrice({ amount: 600_000, qty: 2 }, { subtotal: 1_000_000, total: 900_000, otherIncome: 0, roundingAdjust: 0 })).toBe(270_000);
 });

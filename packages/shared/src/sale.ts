@@ -46,7 +46,8 @@ export function computeSale(input: SaleInput, ctx: SaleContext): SaleResult {
   const due = total - pointsValue;
   const counted = input.payments.filter(p => p.method !== 'points');
   const paid = counted.reduce((s, p) => s + p.amount, 0);
-  const cash = counted.filter(p => p.method === 'cash').reduce((s, p) => s + p.amount, 0);
+  // Change is paid from the drawer: it may come from cash or from exchange credit, never from card/transfer.
+  const cash = counted.filter(p => p.method === 'cash' || p.method === 'exchange').reduce((s, p) => s + p.amount, 0);
   const over = Math.max(0, paid - due);
   const earned = input.hasCustomer && ctx.loyaltyEnabled
     ? pointsEarned(lines.filter(l => !l.isGift).map(l => ({ amount: l.amount, loyaltyEnabled: l.loyaltyEnabled, fixedPoints: l.fixedPoints, qty: l.qty })),
@@ -64,4 +65,11 @@ export function discountLimitExceeded(r: SaleResult, maxPercent: number): boolea
   const list = r.lines.reduce((s, l) => s + l.qty * l.price, 0);
   const manual = r.lines.reduce((s, l) => s + l.discount, 0) + r.invoiceDiscount;
   return manual * 100 > list * maxPercent;
+}
+
+/** Net unit price of a sold line after its share of invoice-level discounts (used for refunds). */
+export function netUnitPrice(line: { amount: number; qty: number }, inv: { subtotal: number; total: number; otherIncome: number; roundingAdjust: number }): number {
+  const invoiceLevel = inv.subtotal + inv.otherIncome + inv.roundingAdjust - inv.total;
+  const share = inv.subtotal > 0 ? (invoiceLevel * line.amount) / inv.subtotal : 0;
+  return Math.max(0, Math.round((line.amount - share) / line.qty));
 }

@@ -125,10 +125,19 @@ export async function createInvoice(tx: Tx, ctx: DocCtx, input: InvoiceInput, us
   }
   await tx.invoice.update({ where: { id: invoice.id }, data: { costTotal } });
 
-  // Money: one cash voucher per payment method (cash net of change).
+  // Money: one cash voucher per payment method; change comes out of cash first, then out of exchange credit.
+  const cashIn = input.payments.filter(p => p.method === 'cash').reduce((t, p) => t + p.amount, 0);
+  const changeFromCash = Math.min(cashIn, r.change);
+  let changeLeft = changeFromCash;
   for (const p of input.payments) {
+    if (p.method === 'exchange' || p.method === 'deposit') await tx.invoicePayment.create({ data: { invoiceId: invoice.id, method: p.method, amount: p.amount } });
     if (p.method === 'points' || p.method === 'deposit' || p.method === 'exchange') continue;
-    const amount = p.method === 'cash' ? p.amount - r.change : p.amount;
+    let amount = p.amount;
+    if (p.method === 'cash') {
+      const take = Math.min(changeLeft, p.amount);
+      changeLeft -= take;
+      amount -= take;
+    }
     if (amount <= 0) continue;
     const fundId = p.fundId ?? settings.pos.defaultFundIds[p.method as 'cash' | 'transfer' | 'card' | 'ewallet'] ?? null;
     const v = await recordCash(tx, ctx, {
@@ -138,6 +147,13 @@ export async function createInvoice(tx: Tx, ctx: DocCtx, input: InvoiceInput, us
     await tx.invoicePayment.create({ data: { invoiceId: invoice.id, method: p.method, amount, fundId: v?.fundId ?? fundId, cashVoucherId: v?.id ?? null } });
   }
   if (r.pointsValue) await tx.invoicePayment.create({ data: { invoiceId: invoice.id, method: 'points', amount: r.pointsValue } });
+  if (r.change > changeFromCash) {
+    // Exchange credit larger than the new invoice: the difference is paid back from the drawer.
+    await recordCash(tx, ctx, {
+      kind: 'out', amount: r.change - changeFromCash, categoryName: 'Chi tiền trả khách', counterpartyType: customer ? 'customer' : 'other', counterpartyId: customer?.id,
+      counterpartyName: customer?.name ?? 'Khách lẻ', sourceType: 'invoice', sourceId: invoice.id, sourceCode: code, codePrefix: 'TTTH', note: `Trả lại tiền chênh lệch đổi hàng ${code}`, at,
+    });
+  }
 
   if (customer) {
     if (!isDelivery) {
