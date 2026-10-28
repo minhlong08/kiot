@@ -8,82 +8,79 @@ A self-hosted retail management + point-of-sale application for a Vietnamese fas
 
 ---
 
-## Quick start — one command
+## 1. Run the app locally
 
-From the project folder:
+You need the project folder on your computer (e.g. `kiotviet/`). Then choose **one** of the two options below — they end in the same place.
+
+| | Option A — start script | Option B — manual commands |
+|---|---|---|
+| Best for | Getting started quickly | Seeing / controlling every step |
+| Installs Node.js and pnpm for you | Yes (asks first) | No — you install them |
+| Commands to type | One | About five |
+
+### Option A — one command (recommended)
+
+Open a terminal in the project folder and run:
 
 | macOS / Linux | Windows (Command Prompt or PowerShell) |
 |---|---|
 | `./start.sh` | `start.bat` *(or double-click `start.bat` in Explorer)* |
 
-The script does everything for you, and only what is missing:
+The script does only what is missing:
 
-1. **Node.js 24** — uses it if you have it; on macOS/Linux switches to it with nvm, or offers to install nvm + Node 24 for your user; on Windows offers to install Node.js LTS with `winget`. It always **asks before installing**.
+1. **Node.js 24** — uses it if you have it. macOS/Linux: switches to it with nvm, or offers to install nvm + Node 24 for your user only. Windows: offers to install Node.js LTS with `winget`. It always **asks before installing**.
 2. **pnpm 10** — uses yours, or runs it through `npx` (no global install).
 3. **Dependencies** — runs `pnpm install` on the first run and whenever `pnpm-lock.yaml` changes.
-4. **Starts the app** (creates the database and demo data on the first run), waits until it answers, then **opens the browser** at <http://localhost:5173> and prints the URLs and the demo login (`admin` / `admin123`).
+4. **Starts the app** (creates the database and demo data on the first run), waits until it answers, then **opens the browser** at <http://localhost:5173> and prints the URLs and the demo login.
 
-If the app is already running it just opens the browser. Stop it with `Ctrl + C` (or close the window). Other options: `./start.sh --check` (install/check prerequisites only, don't start) and `NO_OPEN=1 ./start.sh` (don't open the browser).
+If the app is already running, it just opens the browser. Extra options: `./start.sh --check` installs/checks prerequisites without starting; `NO_OPEN=1 ./start.sh` doesn't open the browser. If the script stops with a message, follow it — or use Option B.
 
-Prefer doing it by hand, or the script stopped with a message? Follow the steps below.
+> First time on macOS/Linux and you get `permission denied`? Run `chmod +x start.sh` once, or use `bash start.sh`.
 
----
+### Option B — step by step commands
 
-## 1. Set up and run locally (step by step)
+**1. Install Node.js 24**
 
-The steps below are for **macOS** (they also work on Linux). On Windows, `start.bat` above is the easiest way; the manual steps are the same with Node.js installed from <https://nodejs.org> instead of nvm.
-
-### Step 1 — Install Node.js 24 with nvm
-
-The project needs **Node.js 24** (it will not run on Node 20).
+macOS / Linux (with [nvm](https://github.com/nvm-sh/nvm#installing-and-updating)):
 
 ```bash
-# if you don't have nvm yet: https://github.com/nvm-sh/nvm#installing-and-updating
 nvm install 24
 nvm use 24
-node -v          # should print v24.x.x
+nvm alias default 24     # optional: use Node 24 in every new terminal
+node -v                  # should print v24.x.x
 ```
 
-Optional — make Node 24 the default for every new terminal:
+Windows: install **Node.js 24 LTS** from <https://nodejs.org> (or `winget install OpenJS.NodeJS.LTS`), then open a **new** terminal and check `node -v`.
 
-```bash
-nvm alias default 24
-```
+The project will not run on Node 20. The repo has an `.nvmrc`, so in the project folder `nvm use` alone picks Node 24.
 
-The repo contains an `.nvmrc`, so inside the project folder `nvm use` alone also picks Node 24.
-
-### Step 2 — Install pnpm 10
+**2. Install pnpm 10**
 
 ```bash
 npm install -g pnpm@10
-pnpm -v          # should print 10.x
+pnpm -v                  # should print 10.x
 ```
 
 (Alternative: `corepack enable && corepack prepare pnpm@10 --activate`.)
 
-> **"pnpm: command not found"?** pnpm is installed *per Node version* when you use nvm. If your terminal opened on another Node version (e.g. your nvm default is 20), run `nvm use 24` — and run Step 2 again if pnpm was never installed for Node 24.
+> **"pnpm: command not found"?** With nvm, pnpm is installed *per Node version*. If your terminal opened on another version (e.g. your nvm default is 20), run `nvm use 24`, and install pnpm again if it was never installed for Node 24.
 
-### Step 3 — Get the code and install dependencies
+**3. Install the project dependencies**
 
 ```bash
-cd /path/to/kiotviet          # the project folder
-nvm use                       # Node 24 from .nvmrc
-pnpm install                  # installs everything and generates the database client
+cd path/to/kiotviet      # the project folder
+pnpm install             # installs everything and generates the database client
 ```
 
-### Step 4 — Start the app
+**4. Start the app**
 
 ```bash
 pnpm dev
 ```
 
-This command:
+This creates the SQLite database `data/app.db` (or migrates it to the latest structure), loads the **demo data** on the first run only (40 products, suppliers, customers, ~45 invoices over 30 days, deliveries, staff, last month's payroll…) and starts the API and both web apps. Wait until the three servers are running, then open the browser yourself (next section).
 
-1. creates the SQLite database `data/app.db` (or migrates it to the latest structure),
-2. on the **first** run only, loads **demo data** (40 products, suppliers, customers, ~45 invoices over 30 days, deliveries, staff, last month's payroll…),
-3. starts the API and both web apps.
-
-Wait until you see the three servers running, then open:
+### Open the app
 
 | What | URL |
 |---|---|
@@ -92,7 +89,7 @@ Wait until you see the three servers running, then open:
 | Public online shop (Website bán hàng) | <http://localhost:5173/shop> |
 | API health check | <http://localhost:3000/api/health> |
 
-### Step 5 — Sign in
+### Sign in
 
 | Username | Password | Role |
 |---|---|---|
@@ -105,22 +102,23 @@ Every demo account must **change its password at first sign-in**. Then:
 - In the back office, start from **Tổng quan** (dashboard), **Hàng hóa**, **Đơn hàng › Hóa đơn**, **Sổ quỹ**, **Báo cáo**.
 - In the POS, you can **Mở ca** (open a shift with opening cash) or choose **Để sau**; scan or search a product (`F3`), pick a customer (`F4`), pay (`F9`).
 
-### Step 6 — Stop, restart, reset
+### Stop, restart, reset
 
-- Stop: `Ctrl + C` in the terminal running `pnpm dev`.
-- Restart: `pnpm dev` again — your data is kept.
-- Start over with fresh demo data:
+- **Stop:** `Ctrl + C` in the terminal (or close it).
+- **Restart:** run `./start.sh` / `start.bat` (Option A) or `pnpm dev` (Option B) again — your data is kept.
+- **Start over with fresh demo data:**
   - from the app (admin only): **Thiết lập › Sao lưu & khôi phục › Xóa và tạo lại dữ liệu mẫu** (type `XOA DU LIEU` to confirm), or
-  - from the terminal (with the app stopped): `pnpm reset-db` and then `pnpm dev`.
+  - from the terminal, with the app stopped: `pnpm reset-db`, then start again.
 
 ### Troubleshooting
 
 | Symptom | Fix |
 |---|---|
-| `pnpm: command not found` | `nvm use 24`, then `npm install -g pnpm@10` if needed (see Step 2). |
+| `pnpm: command not found` | Use Option A, or `nvm use 24` and then `npm install -g pnpm@10` if needed. |
 | `Unsupported engine` / syntax errors on start | You are on an older Node: `nvm use 24`. |
-| `EADDRINUSE` (port 3000 / 5173 / 5174 in use) | Another copy is running. Stop it, or find it with `lsof -i :3000` and quit that process. |
-| Errors building `better-sqlite3` during install | Install the Xcode command line tools (`xcode-select --install`) and run `pnpm install` again. |
+| `EADDRINUSE` / "Port(s) … are used by another program" | Another copy is running. Stop it, or find it with `lsof -i :3000` (macOS/Linux) or `netstat -ano \| findstr :3000` (Windows) and quit that process. |
+| Errors building `better-sqlite3` during install | macOS: `xcode-select --install`. Windows: install *Visual Studio Build Tools* (Desktop development with C++). Then install again. |
+| `start.bat` says Node.js was installed but an older version is first | Close the window and run `start.bat` again (a new window picks up the new PATH). |
 | Login page keeps coming back | Your session cookie expired or you changed the database — sign in again. |
 
 ### Other ways to run
