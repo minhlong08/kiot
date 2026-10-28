@@ -155,3 +155,26 @@ Rulings made during the build and deferred review findings, per milestone.
 - Final: minor (deferred, for M9 P&L): shop-paid delivery fees are netted into a non-P&L reconciliation voucher — P&L must add deliveryFee ledger rows as expense
 - Final: minor (deferred): loyalty points and totalSpent post at delivery-invoice creation, not on delivery
 - Final: minor (deferred): /api/deliveries builds an IN list of all branch delivery invoice ids
+
+## Milestone 8 — Staff, schedule, timesheets, payroll
+
+- Task 1: Ruling: worked minutes = time inside the shift − break + paid overtime (punches before the start don't count) — plan's 'clamp' wording; cost if wrong: early arrivals unpaid.
+- Task 1: Ruling: perShift hourly rate for overtime = amount / 8 — cost if wrong: OT for per-shift staff priced off an 8h shift.
+- Task 3: Ruling: scheduled shifts with no timesheet row count nothing in the summary (neither present nor absent) — pay needs a recorded presence; cost if wrong: owner must mark absences explicitly to see them.
+- Task 3: Ruling: punch window = 2h before start .. 4h after end; checked-in-but-not-out shift wins, else nearest start — cost if wrong: very early punches rejected with NO_SHIFT.
+- Task 5: Ruling: payments require a locked period (amounts final); regenerate keeps hand-entered bonus/note and never deletes paid paysheets — cost if wrong: one extra click (lock) before paying.
+- Task 5: Ruling: commission = seller's completed invoices dated in the period minus returns dated in the period of any of their invoices; negative totals floor at 0 — cost if wrong: a returns-heavy month shows 0 rather than a clawback.
+- Task 8: Ruling: demo staff logins thu.ngan / ban.hang use password nhanvien123 with forced change on first sign-in (same pattern as admin/admin123) — cost if wrong: README must list them.
+- Task 8: Ruling: seed reassigns every other seeded invoice's sellerId to the sales assistant (direct update, no money effect) so commission has data — cost if wrong: none.
+- Final: fixed overnight/after-midnight times moved to the wrong day in the timesheet editor — week.test 'overnight shift 22:00–06:00…' RED→GREEN, suite green
+- Final: fixed staff without employees.view could not see their timesheet or punch — 'staff without employees.view see … their own timesheet' RED→GREEN; nav item visible to all
+- Final: fixed employee PII exposed to payroll.view and cross-branch employee edit/delete — 'payroll-only users get no ID/birthday/address; other branches are out of reach' RED→GREEN
+- Final: fixed overlapping payroll periods could pay twice — 'a second period overlapping an existing one → 409' RED→GREEN
+- Final: fixed (minor, cheap) shift with orphan timesheet rows hard-deleted — 'a shift with timesheet rows is deactivated' RED→GREEN, suite 287/287
+- Final: minor (deferred): bonus PUT recomputes from a floored total
+- Final: minor (deferred): lock/cancel/regenerate status checks not conditional writes (races)
+- Final: minor (deferred): punch — double-click checks in and out; overwrites manual absent/leave rows; check-in without check-out counts as a full shift
+- Final: minor (deferred): schedule move doesn't carry the timesheet row; deactivated employees' entries can't be deleted
+- Final: minor (deferred): own-timesheet view filtered to the current branch
+- Final: minor (deferred): commission base includes invoice otherIncome
+- Final: minor (deferred): employee PUT may move an employee to a branch the user can't access
